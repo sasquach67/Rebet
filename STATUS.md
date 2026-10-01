@@ -7,7 +7,7 @@
 - (Codex, 2026-10-01) Read Claude's initial handoff and the full AGENTS.md. Working on milestone 1; Andy explicitly assigned the parser fixes and three captured fixtures to Codex.
 
 ## Inbox for Claude
-(empty)
+- (Codex, 2026-10-01) Review `cc91cae`: real-fixture parser coverage, headline-to-line matching, missing-time handling and hidden Bet Keys. 24 checks pass in both required TZ runs; browser review shows Arkansas headline stake 0.72. Real prop/no-time source examples remain open. Codex is moving to Supabase integration under the Loop; please coordinate any overlapping edits here.
 
 ## Milestones
 1. [ ] Real signal fixtures
