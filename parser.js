@@ -93,51 +93,104 @@
   const americanToDec = o => (o > 0 ? 1 + o / 100 : 1 + 100 / Math.abs(o));
   const num = s => (s == null ? null : +s);
   function blankBet() {
-    return { title: '', pick: '', sport: '', league: '', market: '', side: '', line: null, units: null, odds: null, ev: null, winPct: null, fv: null, sharpOdds: '', betKey: '', start: null, hasTime: false, sentAt: null, warnings: [], format: 'generic', raw: '' };
+    return { title: '', pick: '', sport: '', league: '', market: '', marketDetail: '', side: '', line: null, units: null, odds: null, ev: null, winPct: null, fv: null, sharpOdds: '', betKey: '', start: null, hasTime: false, sentAt: null, repeat: false, gameLines: [], selectedGameLine: null, warnings: [], format: 'generic', raw: '' };
   }
 
-  /* ---------- Rebet bot format ----------
-     USA - American Football - ncaa - Over 55.5 Total (-128) • EV: 1.9%
-     Florida Gators @ Missouri Tigers - (Total)
-     Sat, Oct 03, 3:30 PM EDT
-     ... W%: / FV: / EV: / QK: 0.62U / Pinnacle Odds: / Bet Key / Forged by X•Today at 1:56 PM        */
+  /* ---------- Rebet bot format ---------- */
   const BOT_REST = /^(.*?)\s*\(([+-]?\d+)\)\s*(?:[•·]\s*EV:\s*(-?[\d.]+)\s*%)?\s*$/;
   function botHeader(line) {
     const parts = line.trim().split(/\s+-\s+/);
-    if (parts.length < 4) return null;
-    const m = parts.slice(3).join(' - ').match(BOT_REST);
+    // International leagues sometimes omit the country; keep the existing
+    // country/sport/league format's support for separators inside the pick.
+    if (parts.length < 3) return null;
+    const offset = parts.length === 3 ? 0 : 1;
+    const m = parts.slice(offset + 2).join(' - ').match(BOT_REST);
     if (!m || !/[A-Za-z]/.test(m[1])) return null;
-    return { country: parts[0], sport: parts[1], league: parts[2], market: m[1].trim(), odds: +m[2], ev: num(m[3]) };
+    return { sport: parts[offset], league: parts[offset + 1], market: m[1].trim(), odds: +m[2], ev: num(m[3]) };
   }
-  const isFooter = l => /^#.*[•·].*\d{1,2}:\d{2}\s*[ap]m\s*$/i.test(l.trim());
+  const isFooter = l => /^Forged by\b/i.test(l.trim()) || /^#.*[•·].*\d{1,2}:\d{2}\s*[ap]m\s*$/i.test(l.trim());
+
+  function selection(pick, defaultMarket = '') {
+    const market = /\b(?:spread|handicap|SPR)\b/i.test(pick) ? 'spread'
+      : /\b(?:money\s*line|ML)\b/i.test(pick) ? 'moneyline'
+      : /\btotal\b|O\/U/i.test(pick) ? 'total' : defaultMarket || 'other';
+    const side = (pick.match(/\b(over|under)\b/i) || [,''])[1].toLowerCase();
+    const lineMatch = pick.match(/\b(?:over|under)\s+([+-]?\d+(?:\.\d+)?)/i)
+      || (market === 'spread' && pick.match(/([+-]?\d+(?:\.\d+)?)\s*(?:(?:spread|handicap|SPR)\b)?\s*$/i));
+    return { market, side, line: lineMatch ? +lineMatch[1] : null };
+  }
+  function stats(text) {
+    const read = regex => { const m = text.match(regex); return m ? +m[1] : null; };
+    return {
+      winPct: read(/\bW%:\s*([\d.]+)\s*%/i),
+      fv: read(/\bFV:\s*([+-]?\d+)/i),
+      ev: read(/\bEV:\s*(-?[\d.]+)\s*%/i),
+      units: read(/\bQK:\s*(\d+(?:\.\d+)?)\s*u\b/i)
+    };
+  }
+  const normalizedPick = pick => pick.toLowerCase().replace(/\b(?:spread|handicap|spr)\b/g, 'spr')
+    .replace(/\b(?:money\s*line|ml)\b/g, 'ml').replace(/\btotal\b|o\/u/g, 'total')
+    .replace(/\+(?=\d)/g, '').replace(/\s+/g, ' ').trim();
 
   function parseBot(lines, hdr, ctx) {
     const b = blankBet(); const text = lines.join('\n');
     b.format = 'rebet-bot'; b.raw = text;
     b.sport = hdr.sport; b.league = hdr.league; b.odds = hdr.odds; b.ev = hdr.ev; b.pick = hdr.market;
-    const mk = hdr.market;
-    b.market = /total/i.test(mk) ? 'total' : /spread|handicap/i.test(mk) ? 'spread' : /money\s*line|\bML\b/i.test(mk) ? 'moneyline' : 'other';
-    const sd = mk.match(/\b(over|under)\b/i); if (sd) b.side = sd[1].toLowerCase();
-    const ln = mk.match(/(?:over|under)\s+(\d+(?:\.\d+)?)/i) || mk.match(/([+-]\d+(?:\.\d+)?)\s*(?:spread|handicap)/i) || mk.match(/([+-]?\d+(?:\.\d+)?)\s*(?:spread|handicap)/i);
-    if (ln) b.line = +ln[1];
+    Object.assign(b, selection(b.pick));
     const tl = lines.slice(1).find(l => /\s(?:@|vs\.?)\s/i.test(l) && !/^(game lines|rebet)/i.test(l));
-    if (tl) { const t = tl.match(/^(.+?)\s+(?:@|vs\.?)\s+(.+?)(?:\s+-\s+\(.*\))?\s*$/i); b.title = t ? `${t[1].trim()} @ ${t[2].trim()}` : tl.trim(); }
-    else b.title = hdr.market;
-    if (/\bvs\.?\b/i.test(tl || '') && !/@/.test(tl || '')) b.title = b.title.replace(' @ ', ' vs ');
-    // game time
-    const dl = lines.find(l => /\b\d{1,2}:\d{2}\s*[ap]m\b/i.test(l) && new RegExp('\\b' + MON_RE + '\\s+\\d', 'i').test(l));
-    b.sentAt = parseSent(text, ctx);
-    const dctx = Object.assign({}, ctx, { sentAt: b.sentAt });
-    const d = parseDate(dl || text, dctx);
-    if (d) { b.start = d.ms; b.hasTime = d.hasTime; b.warnings.push(...d.warnings); } else b.warnings.push('no game date found');
-    // stats
+    if (tl) {
+      const detail = tl.match(/\s+-\s+\((.*)\)\s*$/);
+      b.marketDetail = detail ? detail[1] : '';
+      b.title = tl.replace(/\s+-\s+\(.*\)\s*$/, '').trim();
+    } else b.title = hdr.market;
+
+    // Only a game-date line can schedule a reminder. Never borrow a footer's
+    // posting time or the Bet Key's UTC date when the game time is absent.
+    b.sentAt = parseSent(lines.find(l => /^Forged by\b/i.test(l)) || text, ctx);
+    const dateLine = new RegExp('^(?:(?:sun|mon|tue|wed|thu|fri|sat)[a-z]*[.,]?\\s*)?(?:' + MON_RE + '\\s+\\d|\\d{1,2}\\s+' + MON_RE + '|20\\d\\d-\\d{1,2}-\\d{1,2}|\\d{1,2}/\\d{1,2}|today\\b|tomorrow\\b|tonight\\b|<t:)', 'i');
+    const dl = lines.slice(1).find(l => dateLine.test(l) || /^(?:sun|mon|tue|wed|thu|fri|sat)[a-z]*\s+\d/i.test(l));
+    const d = dl ? parseDate(dl, Object.assign({}, ctx, { sentAt: b.sentAt })) : null;
+    if (d) {
+      b.hasTime = d.hasTime;
+      b.start = d.hasTime ? d.ms : null;
+      b.warnings.push(...d.warnings);
+    } else b.warnings.push('no game date found');
+
+    // Every Game Lines price has its own stats. The headline is the selected
+    // bet; other prices are retained for review, never silently added as bets.
+    const start = lines.findIndex(l => /^Game Lines\s*$/i.test(l));
+    const end = lines.findIndex((l, i) => i > start && /^(Pinnacle|Bet Key|Forged by)\b/i.test(l));
+    const game = start < 0 ? [] : lines.slice(start + 1, end < 0 ? lines.length : end);
+    const price = /^(.+?)\s*\(([+-]?\d+)\s*\/\s*([+-]?\d+)\)\s*$/;
+    game.forEach((l, i) => {
+      const m = l.match(price); if (!m) return;
+      const next = game.findIndex((s, j) => j > i && price.test(s));
+      b.gameLines.push(Object.assign({ pick: m[1].trim(), odds: +m[2], oppositeOdds: +m[3] },
+        selection(m[1], b.market), stats(game.slice(i + 1, next < 0 ? game.length : next).join('\n'))));
+    });
+    const index = b.gameLines.findIndex(g => g.odds === b.odds &&
+      (normalizedPick(g.pick) === normalizedPick(b.pick)
+        || (b.market === 'spread' && normalizedPick(g.pick + ' SPR') === normalizedPick(b.pick))));
+    if (index >= 0) {
+      b.selectedGameLine = index;
+      const g = b.gameLines[index];
+      b.units = g.units; b.winPct = g.winPct; b.fv = g.fv;
+      if (b.ev == null) b.ev = g.ev;
+    } else if (b.gameLines.length) {
+      // Edited messages can have a stale headline. Using another line's QK
+      // would misstate the intended stake and probability.
+      b.warnings.push('headline pick does not match listed game lines; review odds and units');
+    } else {
+      const s = stats(text);
+      b.units = s.units; b.winPct = s.winPct; b.fv = s.fv;
+      if (b.ev == null) b.ev = s.ev;
+    }
+    if (b.gameLines.length > 1 && index >= 0) b.warnings.push(b.gameLines.length + ' game lines; headline pick selected');
+    b.repeat = /message about this bet has been already sent before/i.test(text);
+    if (b.repeat) b.warnings.push('signal was already sent before');
     let m;
-    if ((m = text.match(/\bW%:\s*([\d.]+)\s*%/))) b.winPct = +m[1];
-    if ((m = text.match(/\bFV:\s*([+-]?\d+)/))) b.fv = +m[1];
-    if (b.ev == null && (m = text.match(/\bEV:\s*(-?[\d.]+)\s*%/))) b.ev = +m[1];
-    if ((m = text.match(/\bQK:\s*(\d+(?:\.\d+)?)\s*u/i))) b.units = +m[1];
-    if ((m = text.match(/\bOdds:\s*([+-]\d+)\s*\/\s*([+-]\d+)/))) b.sharpOdds = `${m[1]} / ${m[2]}`;
-    if ((m = text.match(/Bet Key\s*\n\s*([^\n]+)/i))) b.betKey = m[1];
+    if ((m = text.match(/\bPinnacle\s+Odds:\s*([+-]\d+)\s*\/\s*([+-]\d+)/i))) b.sharpOdds = `${m[1]} / ${m[2]}`;
+    if ((m = text.match(/(?:^|\n)Bet Key\s*:?[\s`|]*([^\s|]+\|20\d\d-\d{2}-\d{2}\|[^\n]+)/i))) b.betKey = m[1].replace(/[|`\s]+$/, '');
     if (b.units == null) b.warnings.push('no QK units found');
     return b;
   }

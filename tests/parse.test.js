@@ -1,6 +1,6 @@
 const fs = require('fs'), path = require('path'), assert = require('assert');
 const P = require('../parser.js');
-const NOW = Date.UTC(2026, 9, 1, 19, 0); // Thu Oct 1 2026 3pm EDT
+const NOW = Date.UTC(2026, 9, 1, 20, 0); // Thu Oct 1 2026 4pm EDT, capture day
 const ctx = { tz: 'America/New_York', localTz: 'America/New_York', now: NOW };
 const iso = ms => new Date(ms).toISOString();
 let n = 0; const t = (name, fn) => { fn(); n++; console.log('ok  ' + name); };
@@ -54,5 +54,76 @@ t('generic fallback still works', () => {
   assert.strictEqual(r.signals[0].title, 'Chiefs @ Bills'); assert.strictEqual(r.signals[0].units, 2); assert.strictEqual(r.signals[0].odds, -110);
   assert.strictEqual(iso(r.signals[0].start), '2026-10-06T00:20:00.000Z');
   assert.strictEqual(r.signals[1].pick, 'ML +150'); assert.strictEqual(r.signals[1].units, 3);
+});
+const fixture = name => fs.readFileSync(path.join(__dirname, 'fixtures', name + '.txt'), 'utf8');
+const realCases = require('./fixtures/real-signals.expected.json');
+for (const expected of realCases) {
+  t('real capture: ' + expected.fixture, () => {
+    const r = P.parse(fixture(expected.fixture), ctx);
+    assert.strictEqual(r.signals.length, 1);
+    const b = r.signals[0];
+    assert.strictEqual(b.format, 'rebet-bot');
+    for (const key of ['title','pick','sport','league','market','marketDetail','side','line','odds','units','ev','winPct','fv','sharpOdds','repeat','selectedGameLine']) {
+      assert.strictEqual(b[key], expected[key], expected.fixture + ': ' + key);
+    }
+    assert.strictEqual(iso(b.start), expected.start);
+    assert.strictEqual(iso(b.sentAt), expected.sentAt);
+    assert.strictEqual(b.hasTime, true);
+    assert.strictEqual(b.betKey, '', 'a hidden spoiler is not a deduplication key');
+    assert.strictEqual(b.gameLines.length, expected.gameLineCount);
+    assert.strictEqual(b.warnings.includes('signal was already sent before'), expected.repeat);
+  });
+}
+t('all real captures pasted together retain every message and correct stats', () => {
+  const r = P.parse(realCases.map(c => fixture(c.fixture)).join('\n\n'), ctx);
+  assert.strictEqual(r.signals.length, realCases.length);
+  r.signals.forEach((b, i) => {
+    assert.strictEqual(b.title, realCases[i].title);
+    assert.strictEqual(b.units, realCases[i].units);
+    assert.strictEqual(iso(b.sentAt), realCases[i].sentAt);
+  });
+});
+t('spread alternatives retain their own price, line, units and probabilities', () => {
+  const b = P.parse(fixture('spread-multiple-hawaii'), ctx).signals[0];
+  assert.deepStrictEqual(b.gameLines.map(g => [g.line,g.odds,g.oppositeOdds,g.units,g.winPct,g.ev,g.fv]), [
+    [-2.5,-125,-105,0.33,56.14,1.1,-128],
+    [-1.5,-137,102,0.21,58.16,0.6,-139]
+  ]);
+});
+t('a stale real headline never borrows stake from a different line', () => {
+  const b = P.parse(fixture('total-stale-headline-ncaa'), ctx).signals[0];
+  assert.strictEqual(b.units, null);
+  assert.strictEqual(b.winPct, null);
+  assert.ok(b.warnings.some(w => /headline pick does not match/.test(w)));
+  assert.ok(!b.warnings.some(w => /headline pick selected/.test(w)));
+});
+// Controlled mutations exercise incomplete pastes; these are not additional real captures.
+t('missing game time never uses the posting time or Bet Key date', () => {
+  const original = fixture('rebet-bot-2').split('#🤖┃rebet')[0];
+  for (const replacement of ['Sat, Oct 03', '']) {
+    const input = original.replace('Sat, Oct 03, 3:30 PM EDT', replacement);
+    const b = P.parse(input, ctx).signals[0];
+    assert.strictEqual(b.start, null);
+    assert.strictEqual(b.hasTime, false);
+    assert.strictEqual(iso(b.sentAt), '2026-10-01T17:56:00.000Z');
+    assert.ok(b.warnings.some(w => /no time|no game date/.test(w)));
+  }
+});
+t('footer boundaries stop a later message supplying units or a date', () => {
+  const input = fixture('moneyline-argentina').replace('QK: 0.20U', '')
+    + '\nAnother bot\nQK: 9U\nOct 10, 11:00 PM EDT\nForged by Someone • Yesterday at 1:00 PM';
+  const b = P.parse(input, ctx).signals[0];
+  assert.strictEqual(b.units, null);
+  assert.strictEqual(iso(b.start), '2026-10-02T00:15:00.000Z');
+  assert.strictEqual(iso(b.sentAt), '2026-10-01T16:47:00.000Z');
+});
+t('Bet Key supports inline and spoiler-wrapped copies, but not hidden labels', () => {
+  const key = 'ncaa|2026-10-04|Missouri Tigers|Florida Gators|total_game|over|line=55.5';
+  const raw = fixture('rebet-bot-2').split('#🤖┃rebet')[0];
+  for (const copy of ['Bet Key ' + key, 'Bet Key\n||' + key + '||']) {
+    assert.strictEqual(P.parse(raw.replace('Bet Key\n' + key, copy), ctx).signals[0].betKey, key);
+  }
+  const hidden = fixture('moneyline-argentina').replace('[Spoiler not expanded]', 'Spoiler');
+  assert.strictEqual(P.parse(hidden, ctx).signals[0].betKey, '');
 });
 console.log(n + ' passed');
