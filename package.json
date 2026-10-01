@@ -1,0 +1,12 @@
+{
+  "name": "rebet-signal-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "node tests/parse.test.js && node tests/schema.test.js",
+    "test:timezone": "TZ=Asia/Tokyo node tests/parse.test.js"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8"
+  }
+}

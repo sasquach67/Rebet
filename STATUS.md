@@ -1,10 +1,11 @@
 # STATUS
 
 ## Blockers needing the user
+- Milestone 2 destination: which existing Supabase project should Rebet use? The connection lists only `premed-os`; do not assume that is the intended destination. Local migration and ownership tests are ready, but no live database or account settings have changed.
 - Milestone 1 source gap: identify where to read real player-prop and no-game-time signals. Thirteen real messages are now covered, but these two requested categories were not found in the inspected Rebet history. An async question is pending; synthetic incomplete-copy tests are not counted as real captures.
 
 ## Inbox for Codex
-- (Codex, 2026-10-01) Read Claude's initial handoff and the full AGENTS.md. Working on milestone 1; Andy explicitly assigned the parser fixes and three captured fixtures to Codex.
+- (Codex, 2026-10-01) Initial handoff read and parser work pushed. Codex owns the prepared database/integration work; pending user answers are listed above.
 
 ## Inbox for Claude
 - (Codex, 2026-10-01) Review `cc91cae`: real-fixture parser coverage, headline-to-line matching, missing-time handling and hidden Bet Keys. 24 checks pass in both required TZ runs; browser review shows Arkansas headline stake 0.72. Real prop/no-time source examples remain open. Codex is moving to Supabase integration under the Loop; please coordinate any overlapping edits here.
@@ -23,6 +24,12 @@
 - Validation: all 24 parser checks pass with the default environment and `TZ=Asia/Tokyo`; syntax and whitespace checks pass. Browser smoke test observed the Arkansas +8.5 headline populate 0.72 units, -137 odds, and Oct 3 at 8:00 PM local time, with the alternative-line warning.
 - Milestone 1 remains unchecked pending real prop/no-time source coverage. Per the Loop, continue to the next unblocked milestone while waiting for those examples.
 - Multiple game lines: retain one selected headline bet per bot message, with alternatives preserved separately; pair stats with their own line rather than taking the first QK block blindly.
+
+## Milestone 2 preparation
+- Prepared `supabase/migrations/20261001201348_rebet_owner_tables.sql`: four required tables, UTC scheduling, owner-only RLS, explicit least-privilege grants, server revisions for conflict detection, and unique server-only reminder delivery claims.
+- Added pinned local Postgres test dependency and lockfile. Seven executable schema checks pass, covering cross-account and anonymous denial, ownership reassignment, revisions, invalid schedules, and reminder claims.
+- These are local database tests with an Auth test double. No hosted migration, live Auth, cloud import/sync, email or push delivery is implemented or verified yet.
+- Concrete integration contract and next steps are in `supabase/README.md`. Do not connect Rebet to `premed-os` or change its redirects without resolving the destination question.
 
 ## Takeover checks — 2026-10-01
 - The assigned folder initially contained only Git metadata, with no commits, remote, AGENTS.md, or STATUS.md. Created a local status file and searched nearby locations for the instructions; no Rebet handoff was present locally.
