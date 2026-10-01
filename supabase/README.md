@@ -1,6 +1,6 @@
 # Rebet database preparation
 
-The migration is **prepared and tested locally, not applied to a Supabase project**. The connected account currently exposes only `premed-os`. Andy must identify the intended Rebet project or confirm sharing that project before any live mutation. No credentials or Supabase keys are stored here.
+The reviewed migration was applied on October 1, 2026 to Rebet project `vuiesmzwsbfqclklfcgv` in the separate Rebet organization. The public schema was empty before application. Hosted security advisors returned no findings; owner policies, RLS and grants were checked. No credentials or Supabase keys are stored here. Auth, sync and reminder delivery still require integration and live verification.
 
 `migrations/20261001201348_rebet_owner_tables.sql` was created with Supabase CLI 2.119.0 using `supabase migration new rebet_owner_tables`. It creates `bets`, `settings`, `push_subscriptions`, and `reminders_sent` in `public`. It deliberately fails if those names already exist, preventing accidental reuse of another app's schema.
 
@@ -18,7 +18,7 @@ The migration is **prepared and tested locally, not applied to a Supabase projec
 
 Run `npm ci --ignore-scripts`, then `npm test` and `npm run test:timezone`.
 
-`tests/schema.test.js` executes the migration and queries in a disposable in-memory PGlite Postgres instance. It supplies a minimal `auth.users` table and `auth.uid()` test function. Checks cover UTC storage, server revisions, owner access, cross-account denial, anonymous denial, invalid schedules, and server-only/unique delivery claims. This does **not** verify hosted Supabase Auth, the Data API, email delivery, or cloud sync. Hosted advisors and live owner-isolation checks are still required after the project is selected.
+`tests/schema.test.js` executes the migration and queries in a disposable in-memory PGlite Postgres instance. It supplies a minimal `auth.users` table and `auth.uid()` test function. Checks cover UTC storage, server revisions, owner access, cross-account denial, anonymous denial, invalid schedules, and server-only/unique delivery claims. This does **not** verify hosted Supabase Auth, the Data API, email delivery, or cloud sync. Hosted advisors and policy/grant inspection have passed; authenticated end-to-end owner-isolation checks remain required.
 
 ## Next integration steps
 

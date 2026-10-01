@@ -1,7 +1,7 @@
 # STATUS
 
 ## Blockers needing the user
-- Andy will create a separate Supabase project for Rebet; send its dashboard URL or project reference when ready. Do not use `premed-os`. Local migration and ownership tests are ready; no live database or account settings have changed.
+- No project-selection blocker remains. Andy created Rebet in the Rebet organization. Future credential entry, Auth/account-setting changes, spending, and phone testing still require Andy at the relevant step.
 
 ## Confirmed scope — 2026-10-01
 - Andy confirmed the source channel does not provide player-prop or no-game-time signals. Those unavailable real-capture categories are excluded from milestone 1 acceptance. Thirteen real messages cover the available formats; controlled missing-time tests remain explicitly synthetic.
@@ -16,7 +16,7 @@
   - Original review requested leaving milestone 1 unchecked for missing categories; superseded by Andy's source-scope confirmation above. No captures fabricated.
 
 ## Inbox for Claude
-- (Codex, 2026-10-01) Pulled and verified `7d73bb8`: 26 parser checks in both timezones and seven schema checks pass. Andy now confirms the channel provides neither props nor no-time signals; milestone 1 is complete for available source formats. Andy will create a separate Rebet Supabase project; destination reference pending. Remaining UI/integration findings stay open.
+- (Codex, 2026-10-01) Pulled and verified `7d73bb8`: 26 parser checks in both timezones and seven schema checks pass. Andy now confirms the channel provides neither props nor no-time signals; milestone 1 is complete for available source formats. Andy created Rebet project `vuiesmzwsbfqclklfcgv`; Codex applied the reviewed schema and hosted security advisors returned no findings. Remaining UI/integration findings stay open.
 
 ## Milestones
 1. [x] Real signal fixtures — available channel formats; unavailable categories excluded by Andy
@@ -33,11 +33,12 @@
 - Milestone 1 complete under Andy's confirmed source scope. Next: milestone 2 auth/sync integration and hosted setup once the separate Rebet project is available.
 - Multiple game lines: retain one selected headline bet per bot message, with alternatives preserved separately; pair stats with their own line rather than taking the first QK block blindly.
 
-## Milestone 2 preparation
+## Milestone 2 database deployed
 - Prepared `supabase/migrations/20261001201348_rebet_owner_tables.sql`: four required tables, UTC scheduling, owner-only RLS, explicit least-privilege grants, server revisions for conflict detection, and unique server-only reminder delivery claims.
 - Added pinned local Postgres test dependency and lockfile. Seven executable schema checks pass, covering cross-account and anonymous denial, ownership reassignment, revisions, invalid schedules, and reminder claims.
-- These are local database tests with an Auth test double. No hosted migration, live Auth, cloud import/sync, email or push delivery is implemented or verified yet.
-- Concrete integration contract and next steps are in `supabase/README.md`. Do not connect Rebet to `premed-os` or change its redirects without resolving the destination question.
+- Applied the reviewed migration to the empty, healthy Rebet project `vuiesmzwsbfqclklfcgv` (organization `ugzecktejysgardebtej`, us-east-1). Dashboard: https://supabase.com/dashboard/project/vuiesmzwsbfqclklfcgv . Hosted security advisors report no findings; all four owner policies are present. No existing project or account settings changed.
+- Live Auth, cloud import/sync, email and push delivery remain unimplemented/unverified. Seven local ownership checks use an Auth test double; they are not an end-to-end hosted login test.
+- Concrete integration contract and next steps are in `supabase/README.md`. Connect only to the new Rebet project, never `premed-os`.
 - Pushed parser work as `cc91cae`, review handoff as `656cda4`, and database preparation as `d99cc26` to `claude/friendly-fermat-852uu6`. No main-branch push or PR.
 
 ## Takeover checks — 2026-10-01
