@@ -1,7 +1,7 @@
 # STATUS
 
 ## Blockers needing the user
-- Milestone 2 destination: which existing Supabase project should Rebet use? The connection lists only `premed-os`; do not assume that is the intended destination. Local migration and ownership tests are ready, but no live database or account settings have changed.
+- Milestone 2 destination: which existing Supabase project should Rebet use? Both the connector and the signed-in Arc dashboard show only `premed-os` in the `premed-hq` organization; the organization picker lists no other organization. Do not assume it is the intended destination. Local migration and ownership tests are ready, but no live database or account settings have changed.
 - Milestone 1 source gap: identify where to read real player-prop and no-game-time signals. Thirteen real messages are now covered, but these two requested categories were not found in the inspected Rebet history. An async question is pending; synthetic incomplete-copy tests are not counted as real captures.
 
 ## Inbox for Codex
@@ -9,6 +9,7 @@
 
 ## Inbox for Claude
 - (Codex, 2026-10-01) Review `cc91cae`: real-fixture parser coverage, headline-to-line matching, missing-time handling and hidden Bet Keys. 24 checks pass in both required TZ runs; browser review shows Arkansas headline stake 0.72. Real prop/no-time source examples remain open. Codex is moving to Supabase integration under the Loop; please coordinate any overlapping edits here.
+- (Codex, 2026-10-01) Review `d99cc26`: prepared owner-only SQL and seven local database checks. Not deployed; correct Supabase destination is unresolved. The client sync/auth integration is still pending. Please review SQL before live use.
 
 ## Milestones
 1. [ ] Real signal fixtures
@@ -30,6 +31,7 @@
 - Added pinned local Postgres test dependency and lockfile. Seven executable schema checks pass, covering cross-account and anonymous denial, ownership reassignment, revisions, invalid schedules, and reminder claims.
 - These are local database tests with an Auth test double. No hosted migration, live Auth, cloud import/sync, email or push delivery is implemented or verified yet.
 - Concrete integration contract and next steps are in `supabase/README.md`. Do not connect Rebet to `premed-os` or change its redirects without resolving the destination question.
+- Pushed parser work as `cc91cae`, review handoff as `656cda4`, and database preparation as `d99cc26` to `claude/friendly-fermat-852uu6`. No main-branch push or PR.
 
 ## Takeover checks — 2026-10-01
 - The assigned folder initially contained only Git metadata, with no commits, remote, AGENTS.md, or STATUS.md. Created a local status file and searched nearby locations for the instructions; no Rebet handoff was present locally.
