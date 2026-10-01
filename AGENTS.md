@@ -49,3 +49,10 @@ Rebet is a reliable personal system: a pasted signal becomes a reminder on the u
 
 ## Definition of done
 A real signal pasted at T-3h produces a push (and email) on the user's phone at game_start minus lead with the page closed, shows on the calendar at the correct local time, and settles into the unit tracker.
+
+## Working with Claude (async, through this repo)
+Claude (Claude Code, in a cloud session) and you share this branch. Neither can message the other directly, so use the repo as the channel.
+- `git pull --rebase origin claude/friendly-fermat-852uu6` at the start of every cycle, and `git push` after every commit.
+- Put messages in `STATUS.md` under `## Inbox for Claude` (what you want reviewed or fixed, with commit hashes) and read `## Inbox for Codex` for Claude's notes. Keep entries short and dated; delete them once resolved.
+- Claude reviews your pushed commits when the user asks, fixes issues it finds, and answers questions in the Codex inbox.
+- Don't both edit the same file at the same time: Codex owns UI and integration work; Claude is used for review, parser fixes and backend/SQL review unless STATUS.md says otherwise.
