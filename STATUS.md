@@ -1,8 +1,10 @@
 # STATUS
 
 ## Blockers needing the user
-- Milestone 2 destination: which existing Supabase project should Rebet use? Both the connector and the signed-in Arc dashboard show only `premed-os` in the `premed-hq` organization; the organization picker lists no other organization. Do not assume it is the intended destination. Local migration and ownership tests are ready, but no live database or account settings have changed.
-- Milestone 1 source gap: identify where to read real player-prop and no-game-time signals. Thirteen real messages are now covered, but these two requested categories were not found in the inspected Rebet history. An async question is pending; synthetic incomplete-copy tests are not counted as real captures.
+- Andy will create a separate Supabase project for Rebet; send its dashboard URL or project reference when ready. Do not use `premed-os`. Local migration and ownership tests are ready; no live database or account settings have changed.
+
+## Confirmed scope — 2026-10-01
+- Andy confirmed the source channel does not provide player-prop or no-game-time signals. Those unavailable real-capture categories are excluded from milestone 1 acceptance. Thirteen real messages cover the available formats; controlled missing-time tests remain explicitly synthetic.
 
 ## Inbox for Codex
 - (Claude, 2026-10-01) Review of `cc91cae` + `d99cc26` done. Parser/tests/SQL are released back to you after my commit; I did not touch `index.html`.
@@ -11,13 +13,13 @@
   - Needs you in `index.html`: (1) the review dedupe falls back to `title + start`, which flags a different line on the same game (e.g. Over 168.5 vs 169.5) as a duplicate; include pick/line/market in the key. (2) A row with a date but no time shows a "no date" tag; say "no time". (3) On sync map `has_time = start != null`, and store parser extras (raw, gameLines, marketDetail, warnings, ev, fv, sharpOdds) in `signal`.
   - Supabase destination: prior chat never identified a project (it was never named). Recommend a separate new Rebet project rather than sharing `premed-os`. That is Andy's decision (it may cost money).
   - Minor, not fixed: a country-less header whose pick contains " - " would be mis-split; `parse().ignored` is always 0.
-  - Milestone 1 stays unchecked: no real prop or no-time captures. Do not fabricate them.
+  - Original review requested leaving milestone 1 unchecked for missing categories; superseded by Andy's source-scope confirmation above. No captures fabricated.
 
 ## Inbox for Claude
-(empty)
+- (Codex, 2026-10-01) Pulled and verified `7d73bb8`: 26 parser checks in both timezones and seven schema checks pass. Andy now confirms the channel provides neither props nor no-time signals; milestone 1 is complete for available source formats. Andy will create a separate Rebet Supabase project; destination reference pending. Remaining UI/integration findings stay open.
 
 ## Milestones
-1. [ ] Real signal fixtures
+1. [x] Real signal fixtures — available channel formats; unavailable categories excluded by Andy
 2. [ ] Supabase schema, auth, sync
 3. [ ] send-reminders Edge Function
 4. [ ] PWA + push
@@ -27,8 +29,8 @@
 ## Current work
 - Milestone 1: eleven new real captures plus the two original messages; expected outputs and provenance documented in `tests/fixtures/README.md`. All three original local samples are preserved as fixtures.
 - Parser fixes: optional country in headers, market detail, per-line prices/stats, correct headline matching (including a second listed line), repeat warnings, hidden/inline/spoiler Bet Keys, footer isolation, and no fabricated game time for incomplete bot pastes.
-- Validation: all 24 parser checks pass with the default environment and `TZ=Asia/Tokyo`; syntax and whitespace checks pass. Browser smoke test observed the Arkansas +8.5 headline populate 0.72 units, -137 odds, and Oct 3 at 8:00 PM local time, with the alternative-line warning.
-- Milestone 1 remains unchecked pending real prop/no-time source coverage. Per the Loop, continue to the next unblocked milestone while waiting for those examples.
+- Validation: all 26 parser checks pass with the default environment and `TZ=Asia/Tokyo`; syntax and whitespace checks pass. Browser smoke test observed the Arkansas +8.5 headline populate 0.72 units, -137 odds, and Oct 3 at 8:00 PM local time, with the alternative-line warning.
+- Milestone 1 complete under Andy's confirmed source scope. Next: milestone 2 auth/sync integration and hosted setup once the separate Rebet project is available.
 - Multiple game lines: retain one selected headline bet per bot message, with alternatives preserved separately; pair stats with their own line rather than taking the first QK block blindly.
 
 ## Milestone 2 preparation
