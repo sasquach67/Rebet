@@ -186,6 +186,10 @@
       if (b.ev == null) b.ev = s.ev;
     }
     if (b.gameLines.length > 1 && index >= 0) b.warnings.push(b.gameLines.length + ' game lines; headline pick selected');
+    // Keep the market qualifier visible: "Over 4 Total" on a first-half market is a
+    // different bet from the full-game total, and the UI shows only `pick`.
+    const qualifier = b.marketDetail.replace(/^(?:money\s*line|moneyline|spread|handicap|total|o\/u)\b\s*/i, '').trim();
+    if (qualifier && !/^\(?\s*match\s*\)?$/i.test(qualifier)) b.pick += ' (' + qualifier.replace(/^\(|\)$/g, '') + ')';
     b.repeat = /message about this bet has been already sent before/i.test(text);
     if (b.repeat) b.warnings.push('signal was already sent before');
     let m;
@@ -208,7 +212,7 @@
     else if ((m = text.match(/(?:odds?|price|@)\s*[:=]?\s*(\d\.\d{1,3})\b/i))) { const dec = +m[1]; if (dec > 1) b.odds = Math.round(dec >= 2 ? (dec - 1) * 100 : -100 / (dec - 1)); }
     b.sentAt = parseSent(text, ctx);
     const d = parseDate(raw.includes('<t:') ? raw : text, Object.assign({}, ctx, { sentAt: b.sentAt }));
-    if (d) { b.start = d.ms; b.hasTime = d.hasTime; b.warnings.push(...d.warnings); } else b.warnings.push('no game date found');
+    if (d) { b.hasTime = d.hasTime; b.start = d.hasTime ? d.ms : null; b.warnings.push(...d.warnings); } else b.warnings.push('no game date found');
     const gl = lines.find(l => /[A-Za-z].*\s(?:vs\.?|v\.?|@|at)\s+[A-Za-z]/i.test(l));
     if (gl) {
       const g = gl.match(/([A-Za-z][^@]*?\s(?:vs\.?|v\.?|at)\s+[A-Za-z][^()\n]*|[A-Za-z][^@]*?\s@\s+[A-Za-z][^()\n]*)/i);

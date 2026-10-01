@@ -112,7 +112,7 @@
   {
     "fixture": "total-first-half-mlb",
     "title": "Philadelphia Phillies @ Atlanta Braves",
-    "pick": "Over 4 Total",
+    "pick": "Over 4 Total (1st Half)",
     "sport": "Baseball",
     "league": "mlb",
     "market": "total",
@@ -134,7 +134,7 @@
   {
     "fixture": "moneyline-regulation-hockey",
     "title": "Ceske Budejovice @ Sparta Prague",
-    "pick": "Ceske Budejovice Moneyline",
+    "pick": "Ceske Budejovice Moneyline (Regulation Time)",
     "sport": "Hockey",
     "league": "extraliga",
     "market": "moneyline",

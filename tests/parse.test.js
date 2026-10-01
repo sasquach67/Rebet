@@ -126,4 +126,16 @@ t('Bet Key supports inline and spoiler-wrapped copies, but not hidden labels', (
   const hidden = fixture('moneyline-argentina').replace('[Spoiler not expanded]', 'Spoiler');
   assert.strictEqual(P.parse(hidden, ctx).signals[0].betKey, '');
 });
+t('market qualifiers stay visible in the pick, so a 1st-half or regulation bet is not misread', () => {
+  const half = P.parse(fixture('total-first-half-mlb'), ctx).signals[0];
+  assert.strictEqual(half.pick, 'Over 4 Total (1st Half)');
+  assert.strictEqual(half.market, 'total'); assert.strictEqual(half.line, 4); assert.strictEqual(half.selectedGameLine, 0);
+  assert.strictEqual(P.parse(fixture('moneyline-regulation-hockey'), ctx).signals[0].pick, 'Ceske Budejovice Moneyline (Regulation Time)');
+  assert.strictEqual(P.parse(fixture('moneyline-argentina'), ctx).signals[0].pick, 'Estudiantes de La Plata Moneyline'); // "(match)" is noise
+});
+t('generic signal with a date but no time stays unscheduled (no invented noon)', () => {
+  const b = P.parse('Chiefs @ Bills\nPick: Chiefs +3.5 (-110)\nUnits: 2u\nOct 5', ctx).signals[0];
+  assert.strictEqual(b.start, null); assert.strictEqual(b.hasTime, false);
+  assert.ok(b.warnings.includes('no time found'));
+});
 console.log(n + ' passed');
