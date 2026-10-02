@@ -147,6 +147,7 @@ body.calendar-active .wrap{max-width:1440px}
 
   <div class="card mute">
     Data is saved only in this browser.
+    <p>Pending and placed bets are assumed lost 36 hours after the estimated game end unless you have confirmed a matching pasted CASH post. Checked while open and when reopened; no live score or Discord monitoring. Skipped bets are excluded. You can correct results or reopen a bet to keep it manual.</p>
     <button class="btn sm" id="exp">Export backup</button>
     <button class="btn sm" id="imp">Import backup</button>
     <input type="file" id="impFile" accept=".json" hidden>
@@ -159,6 +160,7 @@ body.calendar-active .wrap{max-width:1440px}
 
 <script src="parser.js"></script>
 <script src="calendar.js"></script>
+<script src="settlement.js"></script>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const KEY='rebet.v1';
@@ -200,14 +202,15 @@ let pendingRes={results:[],existing:[],unmatched:[],lostAssumed:0};
 $('#parseBtn').onclick=()=>{
   const out=RebetParser.parse($('#paste').value,signalCtx());
   pending=out.signals.map(b=>Object.assign(b,{id:uid(),status:'pending',notes:'',lead:null,notified:false,created:Date.now()}));
-  // "CASH ..." posts are wins; older signals in the same paste with no win post are assumed lost.
-  const st=RebetParser.settle(pending,out.results,{now:Date.now()});
-  st.wins.forEach(w=>{pending[w.bet]._res='won'});st.lost.forEach(i=>{pending[i]._res='lost'});
-  const open=S.bets.filter(b=>b.status==='pending'||b.status==='placed');
+  // Apply pasted wins before the same 36-hour rule used for saved bets.
+  const st=RebetParser.settle(pending,out.results,{assumeLost:false});
+  st.wins.forEach(w=>{pending[w.bet]._res='won'});
+  pending.forEach(b=>{if(!b._res&&RebetSettlement.shouldLose(b,Date.now()))b._res='lost'});
+  const open=S.bets.filter(RebetSettlement.canMatchWin);
   const ex=RebetParser.settle(open,out.results,{assumeLost:false});
   const stillUnmatched=new Set(st.unmatched.filter(ri=>!ex.wins.some(w=>w.result===ri)));
   pendingRes={results:out.results,existing:ex.wins.map(w=>({id:open[w.bet].id,result:out.results[w.result].raw})),
-    unmatched:[...stillUnmatched].map(i=>out.results[i].raw),lostAssumed:st.lost.length};
+    unmatched:[...stillUnmatched].map(i=>out.results[i].raw),lostAssumed:pending.filter(b=>b._res==='lost').length};
   renderReview();
 };
 $('#manualBtn').onclick=()=>openEdit({id:uid(),title:'',pick:'',units:1,odds:null,start:Date.now()+36e5,hasTime:true,status:'pending',notes:'',raw:'',lead:null,notified:false,created:Date.now()},true);
@@ -217,7 +220,7 @@ function renderReview(){
   if(!pending.length&&!pendingRes.existing.length){box.hidden=false;box.innerHTML='<span class="mute">Nothing to read — paste some text first.</span>';return}
   box.hidden=false;
   const exRows=pendingRes.existing.map(e=>{const b=S.bets.find(x=>x.id===e.id);return b?`<label style="display:block"><input type="checkbox" class="ex" data-id="${esc(e.id)}" style="width:auto" checked> Mark <b>won</b>: ${esc(b.title)} — ${esc(b.pick)} <span class="mute">(win post: ${esc(e.result)})</span></label>`:''}).join('');
-  const resNote=pendingRes.results.length?`<div class="mute" style="margin:6px 0">${pendingRes.results.length} win post${pendingRes.results.length>1?'s':''} found in the paste.${pendingRes.lostAssumed?` ${pendingRes.lostAssumed} older signal${pendingRes.lostAssumed>1?'s':''} with no win post will be marked <b>lost</b> (change it below).`:''}${pendingRes.unmatched.length?`<br>No matching bet for: ${pendingRes.unmatched.map(esc).join('; ')}`:''}</div>`:'';
+  const resNote=(pendingRes.results.length||pendingRes.lostAssumed)?`<div class="mute" style="margin:6px 0">${pendingRes.results.length} win post${pendingRes.results.length>1?'s':''} found in the paste.${pendingRes.lostAssumed?` ${pendingRes.lostAssumed} signal${pendingRes.lostAssumed>1?'s':''} past estimated game end + 36h will be assumed <b>lost</b> (change it below).`:''}${pendingRes.unmatched.length?`<br>No matching bet for: ${pendingRes.unmatched.map(esc).join('; ')}`:''}</div>`:'';
   box.innerHTML=`<b>Found ${pending.length} signal${pending.length===1?'':'s'}</b> <span class="mute">— check the fields, untick anything that isn't a bet.</span>`+resNote+(exRows?`<div class="rv">${exRows}</div>`:'')+
   pending.map((b,i)=>{
     const dup=S.bets.some(x=>b.betKey?x.betKey===b.betKey:(x.title===b.title&&x.start===b.start));
@@ -228,7 +231,7 @@ function renderReview(){
         <div style="grid-column:1/-1"><label class="f">Pick</label><input class="f-pick" value="${esc(b.pick)}"></div>
         <div><label class="f">Units</label><input class="f-units" type="number" step="0.01" value="${b.units??''}"></div>
         <div><label class="f">Odds (American)</label><input class="f-odds" type="number" value="${b.odds??''}" placeholder="-110"></div>
-        <div><label class="f">Result ${b._res==='won'?'<span class="tag won">win post found</span>':b._res==='lost'?'<span class="tag lost">no win post</span>':''}</label><select class="f-status"><option value="pending"${!b._res?' selected':''}>Not settled</option><option value="won"${b._res==='won'?' selected':''}>Won</option><option value="lost"${b._res==='lost'?' selected':''}>Lost</option></select></div>
+        <div><label class="f">Result ${b._res==='won'?'<span class="tag won">win post found</span>':b._res==='lost'?'<span class="tag lost">assumed loss · end + 36h</span>':''}</label><select class="f-status"><option value="pending"${!b._res?' selected':''}>Not settled</option><option value="won"${b._res==='won'?' selected':''}>Won</option><option value="lost"${b._res==='lost'?' selected':''}>Lost</option></select></div>
         <div style="grid-column:span 2"><label class="f">Game time </label><input class="f-start" type="datetime-local" value="${dtLocal(b.start)}"></div>
       </div>
       <div class="mute">${[b.league&&b.league.toUpperCase(),b.ev!=null&&'EV '+b.ev+'%',b.winPct!=null&&'W% '+b.winPct,b.fv!=null&&'FV '+fmtO(b.fv),b.sharpOdds&&'Pinnacle '+esc(b.sharpOdds),b.sentAt&&'sent '+new Date(b.sentAt).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})].filter(Boolean).join(' · ')}</div>
@@ -239,7 +242,7 @@ function renderReview(){
   $('#cancelRv').onclick=()=>{pending=[];box.hidden=true};
   $('#addAll').onclick=()=>{
     let n=0;
-    $$('#review .rv').forEach(el=>{
+    $$('#review .rv[data-i]').forEach(el=>{
       if(!el.querySelector('.inc').checked)return;
       const b=pending[+el.dataset.i];
       b.title=el.querySelector('.f-title').value.trim()||'Untitled';
@@ -247,10 +250,13 @@ function renderReview(){
       const u=el.querySelector('.f-units').value;b.units=u===''?null:+u;
       const o=el.querySelector('.f-odds').value;b.odds=o===''?null:+o;
       const s=el.querySelector('.f-start').value;b.start=s?new Date(s).getTime():null;if(s)b.hasTime=true;
-      const f=el.querySelector('.f-status');if(f&&f.value!=='pending')b.status=f.value;
+      const f=el.querySelector('.f-status');
+      if(b._res==='lost'&&f.value==='lost'){b.status='lost';b.autoLossAt=Date.now()}
+      else if(f.value!=='pending'||b._res){RebetSettlement.manualStatus(b,f.value);if(b._res&&f.value==='pending')b.autoLossDisabled=true;}
+      delete b._res;
       S.bets.push(b);n++;
     });
-    $$('#review .ex').forEach(c=>{if(!c.checked)return;const b=S.bets.find(x=>x.id===c.dataset.id);if(b){b.status='won';n++}});
+    $$('#review .ex').forEach(c=>{if(!c.checked)return;const b=S.bets.find(x=>x.id===c.dataset.id);if(b){RebetSettlement.confirmWin(b);n++}});
     save();pending=[];box.hidden=true;$('#paste').value='';
     toast(`Added ${n}`);showTab('up');renderAll();
   };
@@ -264,6 +270,7 @@ function betHTML(b,opts={}){
   if(ds==='due')tags.push('<span class="tag due">place now</span>');
   if(ds==='late')tags.push('<span class="tag due">game started</span>');
   if(b.status!=='pending')tags.push(`<span class="tag ${b.status}">${b.status}${settled(b)&&b.status!=='push'?' '+fmtU(profit(b)):''}</span>`);
+  if(b.status==='lost'&&b.autoLossAt!=null)tags.push('<span class="tag">Assumed loss · end + 36h</span>');
   const detail=[b.units!=null?b.units+'u':'',b.odds!=null?fmtO(b.odds):'',b.ev!=null?'EV '+b.ev+'%':'',b.league?b.league.toUpperCase():''].filter(Boolean).join(' · ');
   const when=b.start?`${fmtDT(b.start,b.hasTime)}${isOpen(b)&&b.hasTime?` <span class="mute">(place from ${new Date(placeAt(b)).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})})</span>`:''}`:'<span class="tag due">no date</span>';
   const acts=b.status==='pending'
@@ -277,7 +284,7 @@ document.addEventListener('click',e=>{
   const t=e.target.closest('[data-a]');if(!t)return;
   const b=S.bets.find(x=>x.id===t.dataset.id);if(!b)return;
   if(t.dataset.a==='edit')return openEdit(b);
-  b.status=t.dataset.a;save();renderAll();
+  RebetSettlement.manualStatus(b,t.dataset.a);save();renderAll();
 });
 function deleteBet(b){if(!confirm('Delete this bet?'))return false;S.bets=S.bets.filter(x=>x!==b);save();return true}
 function openEdit(b,isNew){
@@ -303,7 +310,7 @@ function openEdit(b,isNew){
     b.title=v('e-title').trim()||'Untitled';b.pick=v('e-pick').trim();
     b.units=v('e-units')===''?null:+v('e-units');b.odds=v('e-odds')===''?null:+v('e-odds');
     const old=b.start;b.start=v('e-start')?new Date(v('e-start')).getTime():null;if(b.start){b.hasTime=true;if(b.start!==old)b.notified=false}
-    b.lead=v('e-lead')===''?null:+v('e-lead');b.status=v('e-status');b.notes=v('e-notes');
+    b.lead=v('e-lead')===''?null:+v('e-lead');if(b.status!==v('e-status'))RebetSettlement.manualStatus(b,v('e-status'));b.notes=v('e-notes');
     if(isNew)S.bets.push(b);
     save();$('#dlg').close();renderAll();
   };
@@ -366,7 +373,7 @@ function renderDetail(){const b=S.bets.find(b=>b.id===detailId);if(!b){closeDeta
   const field=(label,value)=>`<div><dt>${label}</dt><dd>${esc(value??'—')}</dd></div>`;
   const timed=b.hasTime&&b.start!=null;
   let zoned='Time unknown';if(timed){try{zoned=new Date(b.start).toLocaleString([],{timeZone:signalZone(b),dateStyle:'medium',timeStyle:'short'})+' · '+signalZone(b)}catch{zoned='Signal zone unavailable'}}
-  $('#detailContent').innerHTML=`<div class="detail-top"><span class="tag ${calStatus(b)}">${esc(b.status)}</span><button class="btn sm" id="closeDetail" aria-label="Close event details">✕</button></div><h2 id="detailTitle">${esc(b.title)}</h2><p class="detail-pick">${esc(b.pick)}</p><dl class="detail-fields">${field('Market / league',[b.marketDetail||b.market,b.league].filter(Boolean).join(' · '))}${field('Units / odds',(b.units??'—')+'u · '+(fmtO(b.odds)||'—'))}${field('EV',b.ev==null?'—':b.ev+'%')}${field('Win probability',b.winPct==null?'—':b.winPct+'%')}${field('Fair value',fmtO(b.fv)||'—')}${field('Pinnacle odds',b.sharpOdds||'—')}${field('Game time · local',timed?fmtDT(b.start):'Time unknown')}${field('Game time · signal zone',zoned)}${field('Estimated duration',C.durationFor(b)/C.HOUR+' hours')}${field('Place by',timed?fmtDT(placeAt(b)):'Needs a game time')}${field('Countdown',timed?(b.start<=Date.now()?'Game has started':b.status==='pending'?countdown(placeAt(b)):'Status: '+b.status):'Unscheduled')}${field('Signal sent',b.sentAt?fmtDT(b.sentAt):'Unknown')}</dl><div class="detail-actions">${['placed','won','lost','skipped'].map(status=>`<button class="btn sm" data-a="${status}" data-id="${esc(b.id)}">${status[0].toUpperCase()+status.slice(1)}</button>`).join('')}<button class="btn sm" id="detailEdit">Edit</button><button class="btn sm" id="detailDelete">Delete</button></div>${b.gameLines?.length?`<h3>Listed game lines</h3><ul class="game-lines">${b.gameLines.map((g,i)=>`<li>${i===b.selectedGameLine?'<b>Selected · </b>':''}${esc(g.pick)} · ${esc(fmtO(g.odds))} · ${esc(g.units??'—')}u</li>`).join('')}</ul>`:''}${b.warnings?.length?`<h3>Parser warnings</h3><ul>${b.warnings.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>`:''}${b.notes?`<p>${esc(b.notes)}</p>`:''}<details><summary>Original signal</summary><pre>${esc(b.raw||'No original text')}</pre></details>`;
+  $('#detailContent').innerHTML=`<div class="detail-top"><span class="tag ${calStatus(b)}">${esc(b.status)}</span><button class="btn sm" id="closeDetail" aria-label="Close event details">✕</button></div><h2 id="detailTitle">${esc(b.title)}</h2><p class="detail-pick">${esc(b.pick)}</p><dl class="detail-fields">${field('Market / league',[b.marketDetail||b.market,b.league].filter(Boolean).join(' · '))}${field('Units / odds',(b.units??'—')+'u · '+(fmtO(b.odds)||'—'))}${field('EV',b.ev==null?'—':b.ev+'%')}${field('Win probability',b.winPct==null?'—':b.winPct+'%')}${field('Fair value',fmtO(b.fv)||'—')}${field('Pinnacle odds',b.sharpOdds||'—')}${field('Game time · local',timed?fmtDT(b.start):'Time unknown')}${field('Game time · signal zone',zoned)}${field('Estimated duration',C.durationFor(b)/C.HOUR+' hours')}${field('Automatic result',b.autoLossAt!=null?'Assumed lost · no pasted win by estimated end + 36h':b.autoLossDisabled?'Manual result (automatic loss disabled)':!['pending','placed'].includes(b.status)?'Not applicable · '+b.status:RebetSettlement.deadline(b)!=null?'Assume lost after '+fmtDT(RebetSettlement.deadline(b)):'Needs a known game time')}${field('Place by',timed?fmtDT(placeAt(b)):'Needs a game time')}${field('Countdown',timed?(b.start<=Date.now()?'Game has started':b.status==='pending'?countdown(placeAt(b)):'Status: '+b.status):'Unscheduled')}${field('Signal sent',b.sentAt?fmtDT(b.sentAt):'Unknown')}</dl><div class="detail-actions">${['placed','won','lost','skipped'].map(status=>`<button class="btn sm" data-a="${status}" data-id="${esc(b.id)}">${status[0].toUpperCase()+status.slice(1)}</button>`).join('')}<button class="btn sm" id="detailEdit">Edit</button><button class="btn sm" id="detailDelete">Delete</button></div>${b.gameLines?.length?`<h3>Listed game lines</h3><ul class="game-lines">${b.gameLines.map((g,i)=>`<li>${i===b.selectedGameLine?'<b>Selected · </b>':''}${esc(g.pick)} · ${esc(fmtO(g.odds))} · ${esc(g.units??'—')}u</li>`).join('')}</ul>`:''}${b.warnings?.length?`<h3>Parser warnings</h3><ul>${b.warnings.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>`:''}${b.notes?`<p>${esc(b.notes)}</p>`:''}<details><summary>Original signal</summary><pre>${esc(b.raw||'No original text')}</pre></details>`;
   $('#closeDetail').onclick=closeDetail;
   $('#detailEdit').onclick=()=>{closeDetail();openEdit(b)};
   $('#detailDelete').onclick=()=>{if(deleteBet(b)){closeDetail();renderAll()}};
@@ -396,7 +403,8 @@ function renderTrk(){
     <div class="card"><b>Results</b>${done.length?done.slice().reverse().map(betHTML).join(''):'<div class="mute">Mark bets Won / Lost after you place them and they’ll show up here.</div>'}</div>`;
   $('#defOdds').onchange=e=>{S.settings.defaultOdds=+e.target.value||-110;save();renderTrk()};
 }
-function renderAll(){renderUp();renderCal();renderTrk();checkAlerts(true)}
+function applyAutomaticLosses(){const n=RebetSettlement.apply(S.bets,Date.now());if(n)save();return n}
+function renderAll(){applyAutomaticLosses();renderUp();renderCal();renderTrk();checkAlerts(true)}
 
 /* ---------- tabs ---------- */
 function showTab(t){document.body.classList.toggle('calendar-active',t==='cal');$$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));['add','up','cal','trk'].forEach(x=>$('#t-'+x).hidden=x!==t);if(t==='cal'){calScrollReset=true;renderCal()}}
@@ -416,7 +424,9 @@ function checkAlerts(silent){
     if(notifState()==='granted')try{new Notification('Place bet: '+b.title,{body:`${b.pick||''} ${b.units!=null?b.units+'u':''} ${b.odds!=null?fmtO(b.odds):''}`.trim()})}catch(e){}}});
   if(changed)save();
 }
-setInterval(()=>{checkAlerts();renderUp();renderCal()},30000);
+setInterval(()=>{const changed=applyAutomaticLosses();checkAlerts();renderUp();renderCal();if(changed)renderTrk()},30000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)renderAll()});
+window.addEventListener('focus',()=>renderAll());
 
 /* ---------- backup ---------- */
 $('#exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:'application/json'}));a.download='rebet-backup.json';a.click()};

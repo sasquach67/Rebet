@@ -2,7 +2,7 @@
 const fs = require('fs'), path = require('path');
 const root = path.join(__dirname, '..');
 let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-for (const name of ['parser.js', 'calendar.js']) {
+for (const name of ['parser.js', 'calendar.js', 'settlement.js']) {
   const tag = '<script src="' + name + '"></script>';
   if (!html.includes(tag)) throw new Error('Missing script reference: ' + name);
   const source = fs.readFileSync(path.join(root, name), 'utf8');

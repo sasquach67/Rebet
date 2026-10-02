@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "test": "node tests/parse.test.js && node tests/schema.test.js && node tests/reminders.test.js && node tests/reminder-message.test.js && node tests/calendar.test.js",
+    "test": "node tests/parse.test.js && node tests/schema.test.js && node tests/reminders.test.js && node tests/reminder-message.test.js && node tests/calendar.test.js && node tests/settlement.test.js",
     "test:timezone": "TZ=Asia/Tokyo node tests/parse.test.js",
     "build": "node scripts/build-single.js"
   },
