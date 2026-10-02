@@ -531,6 +531,28 @@ body.calendar-active .wrap{max-width:1440px}
 
 </script>
 <script>
+/* Signal identity excludes odds/stake: a repost must not replace the saved bet. */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.RebetDedupe=factory()})(typeof globalThis!=='undefined'?globalThis:this,function(){
+  const norm=value=>String(value??'').normalize('NFKC').trim().toLowerCase().replace(/\s+/g,' ');
+  function fallback(b){
+    if(!norm(b.title)||!norm(b.pick))return null;
+    if(!b.hasTime||!Number.isFinite(b.start))return null;
+    return JSON.stringify([norm(b.title),b.start,norm(b.pick),norm(b.market),norm(b.marketDetail),norm(b.side),b.line??null]);
+  }
+  function same(a,b){
+    const ak=norm(a.betKey),bk=norm(b.betKey);
+    if(ak&&bk)return ak===bk;
+    const af=fallback(a),bf=fallback(b);
+    if(af&&bf)return af===bf;
+    // Without a scheduled time, only an identical original message is safe to skip.
+    return !!norm(a.raw)&&norm(a.raw)===norm(b.raw)&&norm(a.title)===norm(b.title)&&norm(a.pick)===norm(b.pick);
+  }
+  function filter(incoming,saved){const kept=[],seen=saved.slice();let skipped=0;for(const b of incoming){if(seen.some(x=>same(x,b)))skipped++;else{kept.push(b);seen.push(b)}}return {kept,skipped}}
+  return {same,filter};
+});
+
+</script>
+<script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const KEY='rebet.v1';
 let S={bets:[],settings:{lead:3,defaultOdds:-110}};
@@ -567,10 +589,13 @@ const dayKey=ms=>{const d=new Date(ms);return d.getFullYear()+'-'+d.getMonth()+'
 
 /* ---------- add / review ---------- */
 let pending=[];
+let duplicatesSkipped=0;
 let pendingRes={results:[],existing:[],unmatched:[],lostAssumed:0};
 $('#parseBtn').onclick=()=>{
   const out=RebetParser.parse($('#paste').value,signalCtx());
-  pending=out.signals.map(b=>Object.assign(b,{id:uid(),status:'pending',notes:'',lead:null,notified:false,created:Date.now()}));
+  const unique=RebetDedupe.filter(out.signals,S.bets);
+  duplicatesSkipped=unique.skipped;
+  pending=unique.kept.map(b=>Object.assign(b,{id:uid(),status:'pending',notes:'',lead:null,notified:false,created:Date.now()}));
   // Apply pasted wins before the same 36-hour rule used for saved bets.
   const st=RebetParser.settle(pending,out.results,{assumeLost:false});
   st.wins.forEach(w=>{pending[w.bet]._res='won'});
@@ -586,15 +611,14 @@ $('#manualBtn').onclick=()=>openEdit({id:uid(),title:'',pick:'',units:1,odds:nul
 function dtLocal(ms){if(!ms)return '';const d=new Date(ms-new Date(ms).getTimezoneOffset()*6e4);return d.toISOString().slice(0,16)}
 function renderReview(){
   const box=$('#review');
-  if(!pending.length&&!pendingRes.existing.length){box.hidden=false;box.innerHTML='<span class="mute">Nothing to read — paste some text first.</span>';return}
+  if(!pending.length&&!pendingRes.existing.length){box.hidden=false;box.innerHTML=duplicatesSkipped?`<span class="mute">${duplicatesSkipped} duplicate signal${duplicatesSkipped===1?'':'s'} skipped automatically. No new signals.</span>`:'<span class="mute">Nothing to read — paste some text first.</span>';return}
   box.hidden=false;
   const exRows=pendingRes.existing.map(e=>{const b=S.bets.find(x=>x.id===e.id);return b?`<label style="display:block"><input type="checkbox" class="ex" data-id="${esc(e.id)}" style="width:auto" checked> Mark <b>won</b>: ${esc(b.title)} — ${esc(b.pick)} <span class="mute">(win post: ${esc(e.result)})</span></label>`:''}).join('');
   const resNote=(pendingRes.results.length||pendingRes.lostAssumed)?`<div class="mute" style="margin:6px 0">${pendingRes.results.length} win post${pendingRes.results.length>1?'s':''} found in the paste.${pendingRes.lostAssumed?` ${pendingRes.lostAssumed} signal${pendingRes.lostAssumed>1?'s':''} past estimated game end + 36h will be assumed <b>lost</b> (change it below).`:''}${pendingRes.unmatched.length?`<br>No matching bet for: ${pendingRes.unmatched.map(esc).join('; ')}`:''}</div>`:'';
-  box.innerHTML=`<b>Found ${pending.length} signal${pending.length===1?'':'s'}</b> <span class="mute">— check the fields, untick anything that isn't a bet.</span>`+resNote+(exRows?`<div class="rv">${exRows}</div>`:'')+
+  box.innerHTML=(duplicatesSkipped?`<p class="mute">${duplicatesSkipped} duplicate signal${duplicatesSkipped===1?'':'s'} skipped automatically.</p>`:'')+`<b>Found ${pending.length} signal${pending.length===1?'':'s'}</b> <span class="mute">— check the fields, untick anything that isn't a bet.</span>`+resNote+(exRows?`<div class="rv">${exRows}</div>`:'')+
   pending.map((b,i)=>{
-    const dup=S.bets.some(x=>b.betKey?x.betKey===b.betKey:(x.title===b.title&&x.start===b.start));
     return `<div class="rv" data-i="${i}">
-      <label><input type="checkbox" class="inc" style="width:auto" ${(b.units!=null||b.start)&&!dup?'checked':''}> Include ${dup?'<span class="tag due">looks like a duplicate</span>':''}</label>
+      <label><input type="checkbox" class="inc" style="width:auto" ${(b.units!=null||b.start)?'checked':''}> Include</label>
       <div class="g">
         <div style="grid-column:1/-1"><label class="f">Game</label><input class="f-title" value="${esc(b.title)}"></div>
         <div style="grid-column:1/-1"><label class="f">Pick</label><input class="f-pick" value="${esc(b.pick)}"></div>
@@ -610,7 +634,7 @@ function renderReview(){
   `<div class="row" style="margin-top:8px"><button class="btn pri" id="addAll">Add selected</button><button class="btn" id="cancelRv">Cancel</button></div>`;
   $('#cancelRv').onclick=()=>{pending=[];box.hidden=true};
   $('#addAll').onclick=()=>{
-    let n=0;
+    let n=0, skippedOnSave=0;
     $$('#review .rv[data-i]').forEach(el=>{
       if(!el.querySelector('.inc').checked)return;
       const b=pending[+el.dataset.i];
@@ -623,11 +647,12 @@ function renderReview(){
       if(b._res==='lost'&&f.value==='lost'){b.status='lost';b.autoLossAt=Date.now()}
       else if(f.value!=='pending'||b._res){RebetSettlement.manualStatus(b,f.value);if(b._res&&f.value==='pending')b.autoLossDisabled=true;}
       delete b._res;
+      if(S.bets.some(x=>RebetDedupe.same(x,b))){skippedOnSave++;return}
       S.bets.push(b);n++;
     });
     $$('#review .ex').forEach(c=>{if(!c.checked)return;const b=S.bets.find(x=>x.id===c.dataset.id);if(b){RebetSettlement.confirmWin(b);n++}});
     save();pending=[];box.hidden=true;$('#paste').value='';
-    toast(`Added ${n}`);showTab('up');renderAll();
+    toast(`Added ${n}${skippedOnSave?`; ${skippedOnSave} duplicates skipped`: ''}`);showTab('up');renderAll();
   };
 }
 function toast(m){const d=document.createElement('div');d.textContent=m;d.style.cssText='position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:8px 14px;border-radius:99px;z-index:99';document.body.append(d);setTimeout(()=>d.remove(),1600)}

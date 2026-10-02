@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict'),D=require('../dedupe');
+const a={title:'Away @ Home',pick:'Over 8.5 Total',market:'total',marketDetail:'Total',side:'over',line:8.5,start:1,hasTime:true,odds:-110,units:1};
+assert.equal(D.filter([a,{...a}],[]).skipped,1);
+assert.equal(D.filter([a],[{...a,status:'won',odds:120,units:2}]).skipped,1);
+assert.equal(D.same({...a,betKey:'abc'},{...a,betKey:'abc',odds:-150}),true);
+assert.equal(D.same({...a,betKey:'abc'},{...a,betKey:'def'}),false);
+assert.equal(D.same({...a,betKey:'abc'},a),true);
+for(const different of [{pick:'Over 9.5 Total',line:9.5},{side:'under',pick:'Under 8.5 Total'},{marketDetail:'1st Half'},{start:2},{market:'spread'},{pick:'Home +8.5'}])assert.equal(D.same(a,{...a,...different}),false);
+assert.equal(D.same(a,{...a,title:' AWAY   @ Home '}),true);
+assert.equal(D.same({...a,start:null,hasTime:false},{...a,start:null,hasTime:false}),false);
+assert.equal(D.same({...a,start:null,raw:'original signal'},{...a,start:null,raw:'original signal'}),true);
+assert.equal(D.same({...a,start:null,raw:'original signal'},{...a,start:null,raw:'different signal'}),false);
+const saved=[{...a,status:'won',notes:'keep this'}],snapshot=JSON.stringify(saved);D.filter([a],saved);assert.equal(JSON.stringify(saved),snapshot);
+console.log('Dedupe checks passed: saved/batch repeats, changed odds, key fallback, distinct picks/periods/dates, incomplete signals, no mutation');
