@@ -1,7 +1,7 @@
 # STATUS
 
 ## Blockers needing the user
-- GitHub Pages is prepared but disabled. Approval needed to enable Pages for `claude/friendly-fermat-852uu6` / `/docs`, publishing the app at the expected URL https://sasquach67.github.io/Rebet/ . Andy previously asked to approve account/settings changes. No DNS, paid plan, or repository-visibility change needed.
+- No publishing blocker: Andy approved enabling GitHub Pages on 2026-10-02; the app is live at https://sasquach67.github.io/Rebet/ . To move existing local-file data, Export backup from that file and Import backup on the website; storage is browser/origin-local and does not sync across devices.
 - No project-selection blocker remains. Andy created Rebet in the Rebet organization. Future credential entry, Auth/account-setting changes, spending, and phone testing still require Andy at the relevant step.
 
 ## Confirmed scope — 2026-10-01
@@ -37,7 +37,7 @@ Andy wants a Notion-Calendar-style view (dark week grid, colored time blocks, re
   - Original review requested leaving milestone 1 unchecked for missing categories; superseded by Andy's source-scope confirmation above. No captures fabricated.
 
 ## Inbox for Claude
-- (Codex, 2026-10-02) Andy requested a stable GitHub app URL. `npm run build` now writes both `dist/rebet.html` and app-only `docs/index.html` (plus `.nojekyll`). Rebuild and commit both on each UI change. Pages enablement awaits Andy's approval; do not publish fixtures or `.local/`. Downloads/rebet.html was updated in place with the old file preserved under `.local/download-backups/`.
+- (Codex, 2026-10-02) Andy requested a stable GitHub app URL. `npm run build` now writes both `dist/rebet.html` and app-only `docs/index.html` (plus `.nojekyll`). Rebuild and commit both on each UI change. Pages is enabled with Andy's approval (2026-10-02); do not publish fixtures or `.local/`. Downloads/rebet.html was updated in place with the old file preserved under `.local/download-backups/`.
 - (Codex, 2026-10-02) Calendar implemented after pulling `524b8d9` (includes Add-tab `8312799`). Layout math/tests pushed as `21cf2ba`; UI/build/screenshots follow in this commit. Review Week/Day/Month, Monday/ISO week boundaries, status blocks, red place-by pills, and detail sidebar/bottom sheet. No parser, SQL, or reminder files changed. No open questions. Mobile week scrolls horizontally with sticky hours; Day is available for a full-width schedule.
 - Validation: `npm test` passes 56 checks (28 parser, 7 schema, 10 reminder, 5 message, 6 calendar); `TZ=Asia/Tokyo node tests/parse.test.js` passes 28. Playwright checks the built single file: exact 3:30 PM positioning, overlap separation, midnight split, unknown-time omission, now/place-by positions, navigation, status-to-Tracker persistence, edit/delete and dismissal. Four reviewed screenshots in `tests/screenshots/` at 1400px and 390px; phone is emulation, not hardware. Standalone `file://` smoke passed; no external runtime dependencies added.
 - (Codex, 2026-10-01) Pulled and verified `7d73bb8`: 26 parser checks in both timezones and seven schema checks pass. Andy now confirms the channel provides neither props nor no-time signals; milestone 1 is complete for available source formats. Andy created Rebet project `vuiesmzwsbfqclklfcgv`; Codex applied the reviewed schema and hosted security advisors returned no findings. Remaining UI/integration findings stay open.
@@ -51,6 +51,7 @@ Andy wants a Notion-Calendar-style view (dark week grid, colored time blocks, re
 6. [ ] Hardening
 
 ## Current work
+- GitHub Pages enabled for `claude/friendly-fermat-852uu6` / `/docs`. Deployment run https://github.com/sasquach67/Rebet/actions/runs/36966178937 succeeded; live HTTPS HTML is byte-identical to `docs/index.html`, and the calendar renders in-browser. Future releases: build, test, commit both generated files, push, then verify deployment and live bytes. No paid plan, DNS change, or repository visibility change.
 - Calendar redesign complete: pure `calendar.js`, Node DST/packing/duration tests, local-time week/day/month UI, unscheduled row, estimated durations, details/actions, and rebuilt `dist/rebet.html` with both modules inlined. No external services changed. Next work follows the functional-app scope above; cloud sync and notifications are deferred.
 - Milestone 1: eleven new real captures plus the two original messages; expected outputs and provenance documented in `tests/fixtures/README.md`. All three original local samples are preserved as fixtures.
 - Parser fixes: optional country in headers, market detail, per-line prices/stats, correct headline matching (including a second listed line), repeat warnings, hidden/inline/spoiler Bet Keys, footer isolation, and no fabricated game time for incomplete bot pastes.
