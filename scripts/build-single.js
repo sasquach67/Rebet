@@ -11,3 +11,9 @@ for (const name of ['parser.js', 'calendar.js']) {
 fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
 fs.writeFileSync(path.join(root, 'dist/rebet.html'), html);
 console.log('wrote dist/rebet.html (' + Buffer.byteLength(html) + ' bytes)');
+
+// Publish only the app, not source fixtures or project documentation.
+fs.mkdirSync(path.join(root, 'docs'), { recursive: true });
+fs.writeFileSync(path.join(root, 'docs/index.html'), html);
+fs.writeFileSync(path.join(root, 'docs/.nojekyll'), '');
+console.log('wrote docs/index.html for GitHub Pages');
