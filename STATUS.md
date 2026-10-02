@@ -10,7 +10,7 @@
 - Priority is a **functional app** (paste signals -> calendar/upcoming -> in-app alerts -> unit tracker). Email and phone push are **not needed now**; Andy will add notifications later. Milestones 3 and 4 are deferred: do not deploy the Edge Function, create a Resend account, or set up push/PWA. The reminder backend code and tests stay in the repo, unused.
 - Order now: (1) the `index.html` fixes from my review, (2) milestone 5 frontend (settings panel with signal timezone/lead/default odds, countdowns on place-now, week agenda, tracker breakdown by league/market, CSV export, undo toast), (3) milestone 6 hardening, (4) cloud sync/login (milestone 2 remainder) only after the app is solid and if Andy wants cross-device data. The app must keep working offline from localStorage throughout.
 
-## Calendar redesign (Andy's request, 2026-10-02) — Codex, please do this next
+## Calendar redesign (Andy's request, 2026-10-02) — implemented; ready for Claude review
 Andy wants a Notion-Calendar-style view (dark week grid, colored time blocks, red "today" badge, red "leave"-style pills). This takes priority over the rest of milestone 5. Spec:
 - **Views:** Week (default), Day, Month (keep the current grid as the third option). Header: month + year + week number, Week/Day/Month dropdown, Today button, prev/next arrows; today's column header gets a red badge.
 - **Time grid:** hour rows (scrollable 24h; on load scroll to now or to the first event of the visible days), red "now" line on today, events in the viewer's local time zone.
@@ -36,6 +36,8 @@ Andy wants a Notion-Calendar-style view (dark week grid, colored time blocks, re
   - Original review requested leaving milestone 1 unchecked for missing categories; superseded by Andy's source-scope confirmation above. No captures fabricated.
 
 ## Inbox for Claude
+- (Codex, 2026-10-02) Calendar implemented after pulling `524b8d9` (includes Add-tab `8312799`). Layout math/tests pushed as `21cf2ba`; UI/build/screenshots follow in this commit. Review Week/Day/Month, Monday/ISO week boundaries, status blocks, red place-by pills, and detail sidebar/bottom sheet. No parser, SQL, or reminder files changed. No open questions. Mobile week scrolls horizontally with sticky hours; Day is available for a full-width schedule.
+- Validation: `npm test` passes 56 checks (28 parser, 7 schema, 10 reminder, 5 message, 6 calendar); `TZ=Asia/Tokyo node tests/parse.test.js` passes 28. Playwright checks the built single file: exact 3:30 PM positioning, overlap separation, midnight split, unknown-time omission, now/place-by positions, navigation, status-to-Tracker persistence, edit/delete and dismissal. Four reviewed screenshots in `tests/screenshots/` at 1400px and 390px; phone is emulation, not hardware. Standalone `file://` smoke passed; no external runtime dependencies added.
 - (Codex, 2026-10-01) Pulled and verified `7d73bb8`: 26 parser checks in both timezones and seven schema checks pass. Andy now confirms the channel provides neither props nor no-time signals; milestone 1 is complete for available source formats. Andy created Rebet project `vuiesmzwsbfqclklfcgv`; Codex applied the reviewed schema and hosted security advisors returned no findings. Remaining UI/integration findings stay open.
 
 ## Milestones
@@ -47,6 +49,7 @@ Andy wants a Notion-Calendar-style view (dark week grid, colored time blocks, re
 6. [ ] Hardening
 
 ## Current work
+- Calendar redesign complete: pure `calendar.js`, Node DST/packing/duration tests, local-time week/day/month UI, unscheduled row, estimated durations, details/actions, and rebuilt `dist/rebet.html` with both modules inlined. No external services changed. Next work follows the functional-app scope above; cloud sync and notifications are deferred.
 - Milestone 1: eleven new real captures plus the two original messages; expected outputs and provenance documented in `tests/fixtures/README.md`. All three original local samples are preserved as fixtures.
 - Parser fixes: optional country in headers, market detail, per-line prices/stats, correct headline matching (including a second listed line), repeat warnings, hidden/inline/spoiler Bet Keys, footer isolation, and no fabricated game time for incomplete bot pastes.
 - Validation: all 26 parser checks pass with the default environment and `TZ=Asia/Tokyo`; syntax and whitespace checks pass. Browser smoke test observed the Arkansas +8.5 headline populate 0.72 units, -137 odds, and Oct 3 at 8:00 PM local time, with the alternative-line warning.
