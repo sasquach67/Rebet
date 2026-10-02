@@ -227,6 +227,86 @@
     return b;
   }
 
+
+  /* ---------- win posts ----------
+     The capper posts "CASH ... LFG @Premium Member ..." followed by the winning bet, e.g.
+       Tasmania Jackjumpers +8.5 (-145)
+       Melbourne United @ Tasmania Jackjumpers u182.5 Total (-122)
+       Fukuoka Hawks @ Tohoku Rakuten Golden Eagles o4 1H Total (-109)
+     A post only counts as a win when the cheer line contains the word CASH. */
+  const clean = l => l.replace(/[*_`~|>]/g, '').replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}]/gu, '').trim();
+  const RES_TOTAL = /^(.+?)\s+(o|u|over|under)\s*(\d+(?:\.\d+)?)\s*(1h|1st\s*half)?\s*total\s*\(([+-]?\d+)\)\s*$/i;
+  const RES_ML = /^(.+?)\s+(?:ml|moneyline)\s*(1h|1st\s*half)?\s*\(([+-]?\d+)\)\s*$/i;
+  const RES_SPREAD = /^(.+?)\s+([+-]\d+(?:\.\d+)?)\s*(1h|1st\s*half)?\s*\(([+-]?\d+)\)\s*$/i;
+  function parseResultLine(line) {
+    let m = line.match(RES_TOTAL);
+    if (m) return { teams: m[1], market: 'total', side: /^o/i.test(m[2]) ? 'over' : 'under', line: +m[3], period: m[4] ? '1h' : 'game', odds: +m[5] };
+    m = line.match(RES_ML);
+    if (m) return { teams: m[1], market: 'moneyline', side: '', line: null, period: m[2] ? '1h' : 'game', odds: +m[3] };
+    m = line.match(RES_SPREAD);
+    if (m) return { teams: m[1], market: 'spread', side: '', line: +m[2], period: m[3] ? '1h' : 'game', odds: +m[4] };
+    return null;
+  }
+  function parseResults(text) {
+    const lines = text.replace(/\r/g, '').split('\n').map(clean);
+    const out = [];
+    for (let i = 0; i < lines.length; i++) {
+      if (!/\bCASH\b/.test(lines[i])) continue;
+      let j = i + 1; while (j < lines.length && !lines[j]) j++;
+      const r = j < lines.length ? parseResultLine(lines[j]) : null;
+      if (r) { out.push(Object.assign(r, { kind: 'win', raw: lines[j], cheer: lines[i].slice(0, 120) })); i = j; }
+    }
+    return out;
+  }
+  const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const teamOf = pick => norm(String(pick || '').replace(/\s*\(.*\)\s*$/, '').replace(/\s+[+-]?\d+(?:\.\d+)?\s*(?:spread|spr|handicap)?\s*$/i, '').replace(/\s+(?:moneyline|ml)\s*$/i, ''));
+  const periodOf = b => (/1st\s*half|\b1h\b/i.test(b.marketDetail || '') || /1st\s*half|\b1h\b/i.test(b.pick || '')) ? '1h' : 'game';
+  function resultMatchScore(b, r) {
+    const title = norm(b.title);
+    const sides = r.teams.split('@').map(norm).filter(Boolean);
+    if (!sides.length || !sides.every(t => title.includes(t))) return 0;
+    if (b.market !== r.market) return 0;
+    const periodMismatch = periodOf(b) !== r.period;
+    const lines = [{ line: b.line, odds: b.odds }].concat((b.gameLines || []).map(g => ({ line: g.line, odds: g.odds })));
+    if (r.market === 'total') {
+      if (b.side !== r.side) return 0;
+    } else {
+      const t = teamOf(b.pick);
+      if (!t || !(t.includes(sides[sides.length - 1]) || sides[sides.length - 1].includes(t))) return 0;
+    }
+    const lineHit = r.line != null && lines.some(x => x.line === r.line);
+    const oddsHit = lines.some(x => x.odds === r.odds);
+    if (r.market === 'moneyline') return periodMismatch ? 0 : (oddsHit ? 3 : 1); // team + market is enough; the price may have moved
+    if (!lineHit && !oddsHit) return 0;
+    const score = (lineHit ? 2 : 0) + (oddsHit ? 1 : 0);
+    // Spread posts never state the period, so one may match a first-half spread, but only on an exact line+price match.
+    // Total posts always say "1H" for first-half totals, so a mismatch there is a different bet.
+    if (periodMismatch && !(r.market === 'spread' && r.period === 'game' && score === 3)) return 0;
+    return score;
+  }
+  /* Matches win posts to bets. Each win goes to the best-scoring bet (ties: most recently sent).
+     Unmatched wins are reported. With assumeLost, bets that are still unresolved, started more than
+     lossAfterHours ago, and were part of a paste containing at least one win post, are returned as lost. */
+  function settle(bets, results, opts) {
+    const o = Object.assign({ now: Date.now(), assumeLost: true, lossAfterHours: 5 }, opts || {});
+    const wins = new Map(), unmatched = [];
+    results.forEach((r, ri) => {
+      let best = 0, pick = -1;
+      bets.forEach((b, bi) => {
+        const sc = resultMatchScore(b, r);
+        if (sc > best || (sc === best && sc > 0 && pick >= 0 && (b.sentAt || 0) > (bets[pick].sentAt || 0))) { best = sc; pick = bi; }
+      });
+      if (pick >= 0 && best > 0) { if (!wins.has(pick)) wins.set(pick, { result: ri, score: best }); } else unmatched.push(ri);
+    });
+    const lost = [];
+    if (o.assumeLost && results.length) {
+      bets.forEach((b, bi) => {
+        if (!wins.has(bi) && b.start && b.hasTime && b.start < o.now - o.lossAfterHours * 3600e3) lost.push(bi);
+      });
+    }
+    return { wins: [...wins].map(([bet, w]) => ({ bet, result: w.result, score: w.score })), unmatched, lost };
+  }
+
   /* ---------- entry point ---------- */
   function parse(text, ctxIn) {
     const ctx = Object.assign({ tz: 'America/New_York', localTz: Intl.DateTimeFormat().resolvedOptions().timeZone, now: Date.now() }, ctxIn || {});
@@ -240,12 +320,12 @@
         for (let j = x.i + 1; j < next; j++) if (isFooter(lines[j])) { end = j + 1; break; }
         return parseBot(lines.slice(x.i, end).map(l => l.trim()).filter(Boolean), x.h, ctx);
       });
-      return { signals, ignored: 0 };
+      return { signals, results: parseResults(text), ignored: 0 };
     }
     const blocks = text.replace(/\r/g, '').split(/\n\s*\n+/).map(s => s.trim()).filter(Boolean);
-    return { signals: blocks.map(b => parseGeneric(b, ctx)), ignored: 0 };
+    return { signals: blocks.map(b => parseGeneric(b, ctx)), results: parseResults(text), ignored: 0 };
   }
 
-  const api = { parse, parseDate, parseSent, americanToDec, zonedToUtc };
+  const api = { parse, parseResults, settle, parseDate, parseSent, americanToDec, zonedToUtc };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.RebetParser = api;
 })(typeof window !== 'undefined' ? window : globalThis);
