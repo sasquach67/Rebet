@@ -33,6 +33,8 @@ Forged by KnightLocks•Today at 1:56 PM
 ## Standing goal
 Rebet is a reliable personal system: a pasted signal becomes a reminder on the user's phone shortly before game time, even with the page closed, and results roll into a unit tracker.
 
+> Update 2026-10-02: Andy only needs a functional app for now. Milestones 3-4 (email/push) are deferred; see STATUS.md "Scope decision" for the current order.
+
 ## Milestones (top to bottom, one at a time; record progress in STATUS.md)
 1. Collect 10+ real signals, including spread, moneyline, props, other sports/leagues, "Yesterday" stamps and no-time ones. Add them as fixtures with expected output and fix the parser until all pass. Use screen access to copy them from Discord.
 2. Supabase: tables `bets`, `settings`, `push_subscriptions`, `reminders_sent`; RLS owner-only; magic-link auth; `supabase-js` sync with localStorage fallback; "import local data" button. Migrations in `supabase/migrations/`. Use the user's existing Supabase project.
