@@ -54,6 +54,7 @@ Andy wants a Notion-Calendar-style view (dark week grid, colored time blocks, re
 6. [ ] Hardening
 
 ## Current work
+- Duplicate-filter release `1035f69` pushed and live HTML verified identical to `docs/index.html` (2026-10-02). Existing stored bets were not migrated or deleted.
 - Automatic duplicate filtering implemented: duplicate rows omitted, skip count shown, no duplicate checkboxes to review. New signals still use Add selected. Node suite and Tokyo parser tests passed; browser regression verified overlapping chunks, repeats within paste, keyless matching, distinct lines and preserved saved fields; settlement browser regression also passed. Built dist/docs.
 - Release `2c72f32` pushed; live GitHub Pages HTML verified byte-for-byte against rebuilt `docs/index.html` on 2026-10-02. No data import/reset or account-setting changes performed.
 - Automatic loss rule implemented (2026-10-02): estimated whole-game duration plus 36 elapsed hours, including first-half picks. Checks run locally while open or on reopening; no closed-page execution, live scores, or Discord monitoring. New and previously saved unresolved bets use the same deadline. Existing manual losses remain unchanged. Rebuilt dist/docs. Validation: 61 Node checks, 28 Tokyo parser checks, calendar browser regression, settlement browser checks for timer, startup catch-up, reload persistence, late CASH correction and manual reopen; desktop/phone emulation screenshots saved.
