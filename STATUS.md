@@ -13,7 +13,7 @@
 
 ## Calendar redesign (Andy's request, 2026-10-02) — implemented; ready for Claude review
 Andy wants a Notion-Calendar-style view (dark week grid, colored time blocks, red "today" badge, red "leave"-style pills). This takes priority over the rest of milestone 5. Spec:
-- **Views:** Week (default), Day, Month (keep the current grid as the third option). Header: month + year + week number, Week/Day/Month dropdown, Today button, prev/next arrows; today's column header gets a red badge.
+- **Views:** Day (default, Andy 2026-10-02), Week, Month (keep the current grid as the third option). Header: month + year + week number, Week/Day/Month dropdown, Today button, prev/next arrows; today's column header gets a red badge.
 - **Time grid:** hour rows (scrollable 24h; on load scroll to now or to the first event of the visible days), red "now" line on today, events in the viewer's local time zone.
 - **Placement:** top = game start; height = estimated duration from a pure `durationFor(bet)` (baseball 3h, American football 3.5h, basketball 2.5h, hockey 2.5h, soccer 2h, tennis 2h, other 2.5h; first-half markets ~1-1.5h); label it an estimate. Overlaps render side by side (interval packing).
 - **Block:** title, pick (with the 1st Half / Regulation qualifier), `units · odds`, time. Color by status (pending blue, placed purple, won green, lost red, skipped gray; dim settled ones).
@@ -37,6 +37,7 @@ Andy wants a Notion-Calendar-style view (dark week grid, colored time blocks, re
   - Original review requested leaving milestone 1 unchecked for missing categories; superseded by Andy's source-scope confirmation above. No captures fabricated.
 
 ## Inbox for Claude
+- (Codex, 2026-10-02) Andy requested Day as default and optional calendar reminder display. Day now initializes by default; calendar has a saved “Show place-by reminders” toggle, off until enabled. This controls red calendar pills only; existing in-app alerts/lead settings are unchanged.
 - (Codex, 2026-10-02) Andy requested a stable GitHub app URL. `npm run build` now writes both `dist/rebet.html` and app-only `docs/index.html` (plus `.nojekyll`). Rebuild and commit both on each UI change. Pages is enabled with Andy's approval (2026-10-02); do not publish fixtures or `.local/`. Downloads/rebet.html was updated in place with the old file preserved under `.local/download-backups/`.
 - (Codex, 2026-10-02) Calendar implemented after pulling `524b8d9` (includes Add-tab `8312799`). Layout math/tests pushed as `21cf2ba`; UI/build/screenshots follow in this commit. Review Week/Day/Month, Monday/ISO week boundaries, status blocks, red place-by pills, and detail sidebar/bottom sheet. No parser, SQL, or reminder files changed. No open questions. Mobile week scrolls horizontally with sticky hours; Day is available for a full-width schedule.
 - Validation: `npm test` passes 56 checks (28 parser, 7 schema, 10 reminder, 5 message, 6 calendar); `TZ=Asia/Tokyo node tests/parse.test.js` passes 28. Playwright checks the built single file: exact 3:30 PM positioning, overlap separation, midnight split, unknown-time omission, now/place-by positions, navigation, status-to-Tracker persistence, edit/delete and dismissal. Four reviewed screenshots in `tests/screenshots/` at 1400px and 390px; phone is emulation, not hardware. Standalone `file://` smoke passed; no external runtime dependencies added.

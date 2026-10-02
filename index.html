@@ -68,6 +68,7 @@ body.calendar-active .wrap{max-width:1440px}
 .calendar-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:20px 22px 8px}
 .calendar-heading{display:flex;align-items:baseline;gap:12px}.calendar-heading b{font-size:24px;letter-spacing:-.6px}
 .calendar-controls{display:flex;align-items:center;gap:6px}.calendar-controls select{width:auto;padding:7px 10px}
+.calendar-reminders{display:flex;align-items:center;gap:8px;padding:0 22px 14px;color:var(--mute);font-size:12px}.calendar-reminders input{width:auto;margin:0}
 .calendar-caption{padding:0 22px 16px;font-size:11px;letter-spacing:.03em;color:var(--mute)}
 #unknownBets{padding:10px 22px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .unknown-list{display:flex;gap:8px;overflow-x:auto;margin-top:6px}.unknown-list .cal-event{min-width:200px;max-width:290px;padding:7px 10px}.unknown-list .cal-event span,.unknown-list .cal-event small{display:none}
@@ -134,9 +135,10 @@ body.calendar-active .wrap{max-width:1440px}
     <div class="card calendar-card">
       <div class="calendar-toolbar">
         <div class="calendar-heading"><b id="monthLbl"></b><span class="mute" id="weekLbl"></span></div>
-        <div class="calendar-controls"><button class="btn sm" id="calToday">Today</button><button class="btn sm" id="prevM" aria-label="Previous calendar period">‹</button><button class="btn sm" id="nextM" aria-label="Next calendar period">›</button><select id="calView" aria-label="Calendar view"><option value="week">Week</option><option value="day">Day</option><option value="month">Month</option></select></div>
+        <div class="calendar-controls"><button class="btn sm" id="calToday">Today</button><button class="btn sm" id="prevM" aria-label="Previous calendar period">‹</button><button class="btn sm" id="nextM" aria-label="Next calendar period">›</button><select id="calView" aria-label="Calendar view"><option value="day">Day</option><option value="week">Week</option><option value="month">Month</option></select></div>
       </div>
       <div class="calendar-caption" id="calZone"></div>
+      <label class="calendar-reminders"><input type="checkbox" id="calReminders"> Show place-by reminders in calendar</label>
       <div id="unknownBets"></div><div id="calBody"></div>
     </div>
   </section>
@@ -316,7 +318,7 @@ function renderUp(){
   $('#t-up').innerHTML=(sec('Coming up',up)+sec('Needs a date',nd)+sec('Past – still unresolved (mark result)',old))||'<div class="card mute">No open signals. Paste some on the “Add signals” tab.</div>';
 }
 const C=RebetCalendar;
-let calDate=C.dayStart(Date.now()),calView='week',calScrollReset=true,detailId=null,detailFocus=null;
+let calDate=C.dayStart(Date.now()),calView='day',calScrollReset=true,detailId=null,detailFocus=null;
 const clockTime=ms=>new Date(ms).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
 const calStatus=b=>['pending','placed','won','lost','skipped','push'].includes(b.status)?b.status:'pending';
 function calEvent(b,extra='',style=''){
@@ -326,6 +328,7 @@ function renderCal(){
   const scroll=$('#calScroll'),oldTop=scroll?.scrollTop||0,oldLeft=scroll?.scrollLeft||0;
   const days=calView==='day'?[C.dayStart(calDate)]:C.weekRange(calDate).days,now=Date.now();
   $('#monthLbl').textContent=new Date(calDate).toLocaleDateString([],{month:'long',year:'numeric'});
+  $('#calReminders').checked=S.settings.calendarReminders===true;
   $('#weekLbl').textContent='Week '+C.weekNumber(calDate);
   $('#calZone').textContent=Intl.DateTimeFormat().resolvedOptions().timeZone+' · Block lengths are estimates';
   const unknown=S.bets.filter(b=>!b.hasTime||b.start==null);
@@ -340,7 +343,7 @@ function renderCal(){
     const axis=Array.from({length:24},(_,i)=>`<span style="top:${i*60}px">${i===0?'12 AM':i<12?i+' AM':i===12?'12 PM':(i-12)+' PM'}</span>`).join('');
     const columns=days.map(day=>{
       const blocks=C.pack(all.filter(x=>x.day===day)).map(x=>calEvent(x.bet,'timed',`top:${x.top}px;height:${x.bottom-x.top}px;left:calc(${100*x.column/x.columns}% + 3px);width:calc(${100/x.columns}% - 6px)`)).join('');
-      const markers=C.pack(S.bets.filter(b=>b.status==='pending'&&b.hasTime&&b.start!=null&&placeAt(b)>=day&&placeAt(b)<C.addDays(day,1)).map(b=>({bet:b,top:C.minute(placeAt(b)),bottom:C.minute(placeAt(b))+20}))).map(x=>`<button class="place-pill ${now>=placeAt(x.bet)&&now<x.bet.start?'overdue':''}" data-event="${esc(x.bet.id)}" style="top:${x.top}px;left:${100*x.column/x.columns}%;max-width:${100/x.columns}%" title="${esc(x.bet.title)} · ${clockTime(placeAt(x.bet))}">place bet <span>${clockTime(placeAt(x.bet))}</span></button>`).join('');
+      const markers=C.pack(S.bets.filter(b=>S.settings.calendarReminders===true&&b.status==='pending'&&b.hasTime&&b.start!=null&&placeAt(b)>=day&&placeAt(b)<C.addDays(day,1)).map(b=>({bet:b,top:C.minute(placeAt(b)),bottom:C.minute(placeAt(b))+20}))).map(x=>`<button class="place-pill ${now>=placeAt(x.bet)&&now<x.bet.start?'overdue':''}" data-event="${esc(x.bet.id)}" style="top:${x.top}px;left:${100*x.column/x.columns}%;max-width:${100/x.columns}%" title="${esc(x.bet.title)} · ${clockTime(placeAt(x.bet))}">place bet <span>${clockTime(placeAt(x.bet))}</span></button>`).join('');
       const line=C.nowPosition(now,day);
       return `<div class="time-column" data-date="${day}">${blocks}${markers}${line==null?'':`<div class="now-line" style="top:${line}px"><i></i></div>`}</div>`;
     }).join('');
@@ -351,6 +354,7 @@ function renderCal(){
   calScrollReset=false;
   if(detailId)renderDetail();
 }
+$('#calReminders').onchange=e=>{S.settings.calendarReminders=e.target.checked;save();renderCal()};
 $('#calView').onchange=e=>{calView=e.target.value;calScrollReset=true;renderCal()};
 function moveCalendar(delta){if(calView==='month'){const d=new Date(calDate);calDate=+new Date(d.getFullYear(),d.getMonth()+delta,1)}else calDate=C.addDays(calDate,delta*(calView==='week'?7:1));calScrollReset=true;renderCal()}
 $('#prevM').onclick=()=>moveCalendar(-1);$('#nextM').onclick=()=>moveCalendar(1);
