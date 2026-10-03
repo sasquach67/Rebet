@@ -55,6 +55,7 @@ Andy wants a Notion-Calendar-style view (dark week grid, colored time blocks, re
 6. [ ] Hardening
 
 ## Current work
+- Release `a8e030c` pushed and live Pages HTML verified byte-identical to `docs/index.html` (2026-10-03); checkmark/WINNER fix deployed.
 - Checkmarked win detection fixed (2026-10-03). Original reproduction returned zero results; now screenshot produces one Liberty -5 win and zero new signals. New browser regression confirms saved result persists and repeat paste is idempotent. npm test and 30 Tokyo parser tests passed, plus settlement browser regression. User must re-paste previously missed win posts; pasted text is not retained. Other listed games require their actual win-post text. No user bets changed directly.
 - Duplicate-filter release `1035f69` pushed and live HTML verified identical to `docs/index.html` (2026-10-02). Existing stored bets were not migrated or deleted.
 - Automatic duplicate filtering implemented: duplicate rows omitted, skip count shown, no duplicate checkboxes to review. New signals still use Add selected. Node suite and Tokyo parser tests passed; browser regression verified overlapping chunks, repeats within paste, keyless matching, distinct lines and preserved saved fields; settlement browser regression also passed. Built dist/docs.
