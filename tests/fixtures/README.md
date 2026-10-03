@@ -29,3 +29,6 @@ One bot message produces one selected signal. `gameLines` preserves every listed
 No real player-prop or no-game-time message was found in the inspected channel history. Searches for passing, yards and points did not yield player props; the other `🔸∣rebet` channel contained a promotion rather than signals. These categories remain open for milestone 1.
 
 Tests that remove the game timestamp, alter footer content, or wrap a key in spoiler markup are explicitly labeled controlled mutations. They test incomplete-copy behavior and **do not count as additional real captures**. Missing game times produce `start: null`, never an invented noon or a time borrowed from the message footer.
+
+### Win result screenshot (2026-10-03)
+`win-checkmark-liberty.txt` transcribes the visible author/time, WINNER heading and checkmarked pick from Andy's supplied screenshot. The attached score image and reactions are excluded. This is a win post, not a new betting signal.

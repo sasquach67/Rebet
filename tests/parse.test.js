@@ -167,4 +167,22 @@ t('no win posts means nothing is assumed lost, and a different line/side never m
   assert.strictEqual(P.settle([b], [parse1('Philadelphia Phillies @ Atlanta Braves o4 1H Total (-108)')]).wins.length, 1);
   assert.strictEqual(P.parseResults('Over 4 Total (-108)\nSSG Landers +1 (-128)').length, 0); // no CASH cheer, no win
 });
+t('screenshot WINNER/checkmark post matches Liberty only and is not a new signal', () => {
+  const text=fixture('win-checkmark-liberty'),r=P.parse(text,ctx);
+  assert.strictEqual(r.results.length,1);
+  assert.strictEqual(r.signals.length,0);
+  const bets=[{title:'Liberty Flames @ Delaware Blue Hens',pick:'Liberty Flames -5 Spread',market:'spread',line:-5,odds:-147},
+    {title:'Liberty Flames @ Delaware Blue Hens',pick:'Delaware Blue Hens 7.5 Spread',market:'spread',line:7.5,odds:-116}];
+  assert.deepStrictEqual(P.settle(bets,r.results,{assumeLost:false}).wins.map(w=>w.bet),[0]);
+});
+t('win markers survive emoji cleanup and do not require CASH', () => {
+  for(const text of ['✅🥉Liberty Flames -5 (-147)','☑️ Liberty Flames -5 (-147)','✔️ Liberty Flames -5 (-147)',
+    'EASY BLOWOUT WINNER\nLiberty Flames -5 (-147)','cash it\nLiberty Flames -5 (-147)',
+    '✅ Liberty Flames -5 (-147)\n✅ SSG Landers +1 (-127)']) {
+    assert.strictEqual(P.parseResults(text).length,text.includes('SSG')?2:1);
+  }
+  for(const text of ['Liberty Flames -5 (-147)','✅ Reminder to place bets\nLiberty Flames -5 (-147)',
+    'NOT A WINNER\nLiberty Flames -5 (-147)','❌ Liberty Flames -5 (-147)'])assert.strictEqual(P.parseResults(text).length,0);
+  assert.strictEqual(P.parseResults(fixture('win-checkmark-liberty')).length,1); // heading and checkmark are one result
+});
 console.log(n + ' passed');

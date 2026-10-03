@@ -233,8 +233,8 @@
        Tasmania Jackjumpers +8.5 (-145)
        Melbourne United @ Tasmania Jackjumpers u182.5 Total (-122)
        Fukuoka Hawks @ Tohoku Rakuten Golden Eagles o4 1H Total (-109)
-     A post only counts as a win when the cheer line contains the word CASH. */
-  const clean = l => l.replace(/[*_`~|>]/g, '').replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}]/gu, '').trim();
+     Recognize explicit CASH/WINNER headings or a checkmark directly on a result line. */
+  const clean = l => l.replace(/[*_`~|>\uFE0F\uFE0E\u200D]/g, '').replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}]/gu, '').trim();
   const RES_TOTAL = /^(.+?)\s+(o|u|over|under)\s*(\d+(?:\.\d+)?)\s*(1h|1st\s*half)?\s*total\s*\(([+-]?\d+)\)\s*$/i;
   const RES_ML = /^(.+?)\s+(?:ml|moneyline)\s*(1h|1st\s*half)?\s*\(([+-]?\d+)\)\s*$/i;
   const RES_SPREAD = /^(.+?)\s+([+-]\d+(?:\.\d+)?)\s*(1h|1st\s*half)?\s*\(([+-]?\d+)\)\s*$/i;
@@ -247,17 +247,26 @@
     if (m) return { teams: m[1], market: 'spread', side: '', line: +m[2], period: m[3] ? '1h' : 'game', odds: +m[4] };
     return null;
   }
-  function parseResults(text) {
-    const lines = text.replace(/\r/g, '').split('\n').map(clean);
-    const out = [];
+  function scanResults(text) {
+    const rawLines = text.replace(/\r/g, '').split('\n'), lines = rawLines.map(clean);
+    const out = [], consumed = new Set();
     for (let i = 0; i < lines.length; i++) {
-      if (!/\bCASH\b/.test(lines[i])) continue;
-      let j = i + 1; while (j < lines.length && !lines[j]) j++;
-      const r = j < lines.length ? parseResultLine(lines[j]) : null;
-      if (r) { out.push(Object.assign(r, { kind: 'win', raw: lines[j], cheer: lines[i].slice(0, 120) })); i = j; }
+      if (consumed.has(i)) continue;
+      const checked = /[✅☑✔]/u.test(rawLines[i]) && !/[❌✖✗]/u.test(rawLines[i]);
+      let j = i, r = checked ? parseResultLine(lines[i]) : null;
+      const cheer = /\b(?:cash|winner)\b/i.test(lines[i]) && !/\b(?:not|no|never|if|hope|hoping)\b|\?/i.test(lines[i]);
+      if (!r && cheer) {
+        j = i + 1; while (j < lines.length && !lines[j]) j++;
+        r = j < lines.length && !/[❌✖✗]/u.test(rawLines[j]) ? parseResultLine(lines[j]) : null;
+      }
+      if (r) {
+        out.push(Object.assign(r, { kind: 'win', raw: lines[j], cheer: lines[i].slice(0, 120) }));
+        consumed.add(i); consumed.add(j);
+      }
     }
-    return out;
+    return { results: out, remaining: rawLines.map((l,i)=>consumed.has(i)?'':l).join('\n') };
   }
+  function parseResults(text) { return scanResults(text).results; }
   const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
   const teamOf = pick => norm(String(pick || '').replace(/\s*\(.*\)\s*$/, '').replace(/\s+[+-]?\d+(?:\.\d+)?\s*(?:spread|spr|handicap)?\s*$/i, '').replace(/\s+(?:moneyline|ml)\s*$/i, ''));
   const periodOf = b => (/1st\s*half|\b1h\b/i.test(b.marketDetail || '') || /1st\s*half|\b1h\b/i.test(b.pick || '')) ? '1h' : 'game';
@@ -323,7 +332,13 @@
       return { signals, results: parseResults(text), ignored: 0 };
     }
     const blocks = text.replace(/\r/g, '').split(/\n\s*\n+/).map(s => s.trim()).filter(Boolean);
-    return { signals: blocks.map(b => parseGeneric(b, ctx)), results: parseResults(text), ignored: 0 };
+    const signals = blocks.flatMap(block => {
+      const scan = scanResults(block), b = parseGeneric(scan.remaining, ctx);
+      // Author names and celebration text left by a result-only paste are not new bets.
+      if (scan.results.length && b.start == null && b.units == null) return [];
+      return [b];
+    });
+    return { signals, results: parseResults(text), ignored: 0 };
   }
 
   const api = { parse, parseResults, settle, parseDate, parseSent, americanToDec, zonedToUtc };

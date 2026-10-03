@@ -147,7 +147,7 @@ body.calendar-active .wrap{max-width:1440px}
 
   <div class="card mute">
     Data is saved only in this browser.
-    <p>Pending and placed bets are assumed lost 36 hours after the estimated game end unless you have confirmed a matching pasted CASH post. Checked while open and when reopened; no live score or Discord monitoring. Skipped bets are excluded. You can correct results or reopen a bet to keep it manual.</p>
+    <p>Pending and placed bets are assumed lost 36 hours after the estimated game end unless you have confirmed a matching pasted win post. Checked while open and when reopened; no live score or Discord monitoring. Skipped bets are excluded. You can correct results or reopen a bet to keep it manual.</p>
     <button class="btn sm" id="exp">Export backup</button>
     <button class="btn sm" id="imp">Import backup</button>
     <input type="file" id="impFile" accept=".json" hidden>
@@ -221,11 +221,11 @@ $('#manualBtn').onclick=()=>openEdit({id:uid(),title:'',pick:'',units:1,odds:nul
 function dtLocal(ms){if(!ms)return '';const d=new Date(ms-new Date(ms).getTimezoneOffset()*6e4);return d.toISOString().slice(0,16)}
 function renderReview(){
   const box=$('#review');
-  if(!pending.length&&!pendingRes.existing.length){box.hidden=false;box.innerHTML=duplicatesSkipped?`<span class="mute">${duplicatesSkipped} duplicate signal${duplicatesSkipped===1?'':'s'} skipped automatically. No new signals.</span>`:'<span class="mute">Nothing to read — paste some text first.</span>';return}
+  if(!pending.length&&!pendingRes.existing.length){box.hidden=false;box.innerHTML=(duplicatesSkipped?`<p class="mute">${duplicatesSkipped} duplicate signal${duplicatesSkipped===1?'':'s'} skipped automatically. No new signals.</p>`:'')+(pendingRes.results.length?`<p class="mute">${pendingRes.results.length} win post${pendingRes.results.length===1?'':'s'} detected, but no matching unresolved bets to update. Already settled bets remain unchanged.</p>`:duplicatesSkipped?'':'<span class="mute">Nothing to read — paste some text first.</span>');return}
   box.hidden=false;
   const exRows=pendingRes.existing.map(e=>{const b=S.bets.find(x=>x.id===e.id);return b?`<label style="display:block"><input type="checkbox" class="ex" data-id="${esc(e.id)}" style="width:auto" checked> Mark <b>won</b>: ${esc(b.title)} — ${esc(b.pick)} <span class="mute">(win post: ${esc(e.result)})</span></label>`:''}).join('');
   const resNote=(pendingRes.results.length||pendingRes.lostAssumed)?`<div class="mute" style="margin:6px 0">${pendingRes.results.length} win post${pendingRes.results.length>1?'s':''} found in the paste.${pendingRes.lostAssumed?` ${pendingRes.lostAssumed} signal${pendingRes.lostAssumed>1?'s':''} past estimated game end + 36h will be assumed <b>lost</b> (change it below).`:''}${pendingRes.unmatched.length?`<br>No matching bet for: ${pendingRes.unmatched.map(esc).join('; ')}`:''}</div>`:'';
-  box.innerHTML=(duplicatesSkipped?`<p class="mute">${duplicatesSkipped} duplicate signal${duplicatesSkipped===1?'':'s'} skipped automatically.</p>`:'')+`<b>Found ${pending.length} signal${pending.length===1?'':'s'}</b> <span class="mute">— check the fields, untick anything that isn't a bet.</span>`+resNote+(exRows?`<div class="rv">${exRows}</div>`:'')+
+  box.innerHTML=(duplicatesSkipped?`<p class="mute">${duplicatesSkipped} duplicate signal${duplicatesSkipped===1?'':'s'} skipped automatically.</p>`:'')+(pending.length?`<b>Found ${pending.length} signal${pending.length===1?'':'s'}</b> <span class="mute">— check the fields, untick anything that isn't a bet.</span>`:'<b>Win updates for saved bets</b>')+resNote+(exRows?`<div class="rv">${exRows}</div>`:'')+
   pending.map((b,i)=>{
     return `<div class="rv" data-i="${i}">
       <label><input type="checkbox" class="inc" style="width:auto" ${(b.units!=null||b.start)?'checked':''}> Include</label>
@@ -241,7 +241,7 @@ function renderReview(){
       ${b.warnings&&b.warnings.length?`<div>${b.warnings.map(w=>`<span class="tag due">${esc(w)}</span>`).join('')}</div>`:''}
       <details><summary class="mute">original text</summary><pre style="white-space:pre-wrap;margin:4px 0" class="mute">${esc(b.raw)}</pre></details>
     </div>`}).join('')+
-  `<div class="row" style="margin-top:8px"><button class="btn pri" id="addAll">Add selected</button><button class="btn" id="cancelRv">Cancel</button></div>`;
+  `<div class="row" style="margin-top:8px"><button class="btn pri" id="addAll">${pending.length?'Add selected':'Apply win updates'}</button><button class="btn" id="cancelRv">Cancel</button></div>`;
   $('#cancelRv').onclick=()=>{pending=[];box.hidden=true};
   $('#addAll').onclick=()=>{
     let n=0, skippedOnSave=0;
