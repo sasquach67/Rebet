@@ -58,6 +58,7 @@ Andy wants a Notion-Calendar-style view (dark week grid, colored time blocks, re
 6. [ ] Hardening
 
 ## Current work
+- Courage alias release `0ffd6bc` pushed and live HTML byte-match verified (2026-10-04).
 - Courage mismatch fixed after exact paste supplied: explicit NC Courage alias. npm test and 32 Tokyo parser checks passed; `tests/courage-win-ui.test.js` verified correction of an existing assumed loss through dedupe/review/save/reload. User refresh/re-paste needed to apply to their browser; no personal records changed directly.
 - Release `688dfe0` live byte-match verified (2026-10-04). Missing-price win detection and blank-line result-only cleanup fixed. npm test, 31 Tokyo parser checks, and Temple browser regression passed. Remaining three unmatched posts await exact user data.
 - Release `a8e030c` pushed and live Pages HTML verified byte-identical to `docs/index.html` (2026-10-03); checkmark/WINNER fix deployed.
