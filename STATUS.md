@@ -60,6 +60,7 @@ Andy wants a Notion-Calendar-style view (dark week grid, colored time blocks, re
 6. [ ] Hardening
 
 ## Current work
+- QK selection release `2b335fb` pushed; live Pages HTML byte-match verified (2026-10-04).
 - QK line selection implemented: Detroit/Carolina becomes Over 49, -147, 0.49u, EV 1.3%; same game time. Pending old headline corrected on Read signals with stable ID/notes; repeats do not recreate it. npm test and 35 Tokyo parser checks plus focused browser correction test passed.
 - Release `ab749ed` pushed and live HTML byte-match verified (2026-10-04): saved-win Tracker updates no longer need Apply.
 - Automatic saved-win updates implemented on Read signals. Tracker/Calendar refresh immediately; summary distinguishes changed, already settled/skipped, and no unique match. npm test and 33 Tokyo parser checks passed; Courage, Liberty, no-odds Temple and settlement browser regressions passed. No live user data changed directly.
