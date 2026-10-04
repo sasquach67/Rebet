@@ -185,4 +185,15 @@ t('win markers survive emoji cleanup and do not require CASH', () => {
     'NOT A WINNER\nLiberty Flames -5 (-147)','❌ Liberty Flames -5 (-147)'])assert.strictEqual(P.parseResults(text).length,0);
   assert.strictEqual(P.parseResults(fixture('win-checkmark-liberty')).length,1); // heading and checkmark are one result
 });
+t('Temple screenshot and other explicit wins accept missing odds without inventing a price', () => {
+  const r=P.parseResults('Another CFB cash 🔥 @Premium Member\n\n✅🥉Temple Owls +8');
+  assert.strictEqual(r.length,1);assert.strictEqual(r[0].odds,null);
+  assert.strictEqual(P.parse('Another CFB cash 🔥 @Premium Member\n\n✅🥉Temple Owls +8',ctx).signals.length,0);
+  const b={title:'Temple Owls @ Example Opponent',pick:'Temple Owls 8 Spread',market:'spread',line:8,odds:-115};
+  assert.strictEqual(P.settle([b],r,{assumeLost:false}).wins.length,1);
+  assert.strictEqual(P.settle([{...b,line:7.5,pick:'Temple Owls 7.5 Spread',odds:null}],r,{assumeLost:false}).wins.length,0);
+  assert.strictEqual(P.settle([{...b,marketDetail:'1st Half'}],r,{assumeLost:false}).wins.length,0);
+  for(const line of ['✅ Home ML','✅ Away @ Home Over 3.5 Total','✅ Away @ Home u3 1H Total'])assert.strictEqual(P.parseResults(line)[0].odds,null);
+  assert.strictEqual(P.parseResults('Temple Owls +8').length,0);
+});
 console.log(n + ' passed');

@@ -235,16 +235,16 @@
        Fukuoka Hawks @ Tohoku Rakuten Golden Eagles o4 1H Total (-109)
      Recognize explicit CASH/WINNER headings or a checkmark directly on a result line. */
   const clean = l => l.replace(/[*_`~|>\uFE0F\uFE0E\u200D]/g, '').replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}]/gu, '').trim();
-  const RES_TOTAL = /^(.+?)\s+(o|u|over|under)\s*(\d+(?:\.\d+)?)\s*(1h|1st\s*half)?\s*total\s*\(([+-]?\d+)\)\s*$/i;
-  const RES_ML = /^(.+?)\s+(?:ml|moneyline)\s*(1h|1st\s*half)?\s*\(([+-]?\d+)\)\s*$/i;
-  const RES_SPREAD = /^(.+?)\s+([+-]\d+(?:\.\d+)?)\s*(1h|1st\s*half)?\s*\(([+-]?\d+)\)\s*$/i;
+  const RES_TOTAL = /^(.+?)\s+(o|u|over|under)\s*(\d+(?:\.\d+)?)\s*(1h|1st\s*half)?\s*total(?:\s*\(([+-]?\d+)\))?\s*$/i;
+  const RES_ML = /^(.+?)\s+(?:ml|moneyline)\s*(1h|1st\s*half)?(?:\s*\(([+-]?\d+)\))?\s*$/i;
+  const RES_SPREAD = /^(.+?)\s+([+-]\d+(?:\.\d+)?)\s*(1h|1st\s*half)?(?:\s*\(([+-]?\d+)\))?\s*$/i;
   function parseResultLine(line) {
     let m = line.match(RES_TOTAL);
-    if (m) return { teams: m[1], market: 'total', side: /^o/i.test(m[2]) ? 'over' : 'under', line: +m[3], period: m[4] ? '1h' : 'game', odds: +m[5] };
+    if (m) return { teams: m[1], market: 'total', side: /^o/i.test(m[2]) ? 'over' : 'under', line: +m[3], period: m[4] ? '1h' : 'game', odds: m[5] == null ? null : +m[5] };
     m = line.match(RES_ML);
-    if (m) return { teams: m[1], market: 'moneyline', side: '', line: null, period: m[2] ? '1h' : 'game', odds: +m[3] };
+    if (m) return { teams: m[1], market: 'moneyline', side: '', line: null, period: m[2] ? '1h' : 'game', odds: m[3] == null ? null : +m[3] };
     m = line.match(RES_SPREAD);
-    if (m) return { teams: m[1], market: 'spread', side: '', line: +m[2], period: m[3] ? '1h' : 'game', odds: +m[4] };
+    if (m) return { teams: m[1], market: 'spread', side: '', line: +m[2], period: m[3] ? '1h' : 'game', odds: m[4] == null ? null : +m[4] };
     return null;
   }
   function scanResults(text) {
@@ -284,7 +284,7 @@
       if (!t || !(t.includes(sides[sides.length - 1]) || sides[sides.length - 1].includes(t))) return 0;
     }
     const lineHit = r.line != null && lines.some(x => x.line === r.line);
-    const oddsHit = lines.some(x => x.odds === r.odds);
+    const oddsHit = r.odds != null && lines.some(x => x.odds === r.odds);
     if (r.market === 'moneyline') return periodMismatch ? 0 : (oddsHit ? 3 : 1); // team + market is enough; the price may have moved
     if (!lineHit && !oddsHit) return 0;
     const score = (lineHit ? 2 : 0) + (oddsHit ? 1 : 0);
@@ -331,14 +331,11 @@
       });
       return { signals, results: parseResults(text), ignored: 0 };
     }
-    const blocks = text.replace(/\r/g, '').split(/\n\s*\n+/).map(s => s.trim()).filter(Boolean);
-    const signals = blocks.flatMap(block => {
-      const scan = scanResults(block), b = parseGeneric(scan.remaining, ctx);
-      // Author names and celebration text left by a result-only paste are not new bets.
-      if (scan.results.length && b.start == null && b.units == null) return [];
-      return [b];
-    });
-    return { signals, results: parseResults(text), ignored: 0 };
+    const scan = scanResults(text);
+    const blocks = scan.remaining.split(/\n\s*\n+/).map(s => s.trim()).filter(Boolean);
+    const signals = blocks.map(block => parseGeneric(block, ctx)).filter(b =>
+      !scan.results.length || b.start != null || b.units != null || !!b.pick);
+    return { signals, results: scan.results, ignored: 0 };
   }
 
   const api = { parse, parseResults, settle, parseDate, parseSent, americanToDec, zonedToUtc };
