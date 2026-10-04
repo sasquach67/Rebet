@@ -318,6 +318,23 @@
     return { wins: [...wins].map(([bet, w]) => ({ bet, result: w.result, score: w.score })), unmatched, lost };
   }
 
+  // Automatic writes require one exact selected line/period, never price-only or an alternative line.
+  function matchConfirmedWins(bets, results, now = Date.now()) {
+    const matches = [], unmatched = [];
+    results.forEach((r, result) => {
+      const candidates = [];
+      bets.forEach((b, bet) => {
+        if (b.start != null && b.start > now) return;
+        if (periodOf(b) !== r.period) return;
+        if (r.market !== 'moneyline' && (b.line == null || b.line !== r.line)) return;
+        if (resultMatchScore(b, r) > 0) candidates.push(bet);
+      });
+      if (candidates.length === 1) matches.push({bet:candidates[0],result});
+      else unmatched.push(result);
+    });
+    return { matches, unmatched };
+  }
+
   /* ---------- entry point ---------- */
   function parse(text, ctxIn) {
     const ctx = Object.assign({ tz: 'America/New_York', localTz: Intl.DateTimeFormat().resolvedOptions().timeZone, now: Date.now() }, ctxIn || {});
@@ -340,6 +357,6 @@
     return { signals, results: scan.results, ignored: 0 };
   }
 
-  const api = { parse, parseResults, settle, parseDate, parseSent, americanToDec, zonedToUtc };
+  const api = { parse, parseResults, settle, matchConfirmedWins, parseDate, parseSent, americanToDec, zonedToUtc };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.RebetParser = api;
 })(typeof window !== 'undefined' ? window : globalThis);

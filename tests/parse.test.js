@@ -206,4 +206,14 @@ t('NC Courage win post matches the full saved team name, including an assumed lo
   const total={...b,market:'total',pick:'Over 3 Total',side:'over',line:3};
   assert.strictEqual(P.settle([total],out.results,{assumeLost:false}).wins.length,0);
 });
+t('automatic matches reject ambiguous games, other lines, periods and future games', () => {
+  const r=P.parseResults('✅ Temple Owls +8 (-110)');
+  const b={title:'Temple Owls @ Opponent',pick:'Temple Owls 8 Spread',market:'spread',line:8,odds:-110,start:1};
+  const match=bets=>P.matchConfirmedWins(bets,r,100);
+  assert.strictEqual(match([b]).matches.length,1);
+  assert.strictEqual(match([b,{...b,start:2}]).matches.length,0);
+  assert.strictEqual(match([{...b,line:7.5,gameLines:[{line:8,odds:-110}]}]).matches.length,0);
+  assert.strictEqual(match([{...b,marketDetail:'1st Half'}]).matches.length,0);
+  assert.strictEqual(match([{...b,start:101}]).matches.length,0);
+});
 console.log(n + ' passed');
