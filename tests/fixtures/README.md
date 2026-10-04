@@ -32,3 +32,6 @@ Tests that remove the game timestamp, alter footer content, or wrap a key in spo
 
 ### Win result screenshot (2026-10-03)
 `win-checkmark-liberty.txt` transcribes the visible author/time, WINNER heading and checkmarked pick from Andy's supplied screenshot. The attached score image and reactions are excluded. This is a win post, not a new betting signal.
+
+### Courage abbreviated win (2026-10-04)
+`win-courage-alias.txt` excerpts the Courage bot signal and `✅🥉NC Courage ML (+176)` post from Andy's pasted chunk. Unrelated messages are omitted and the narrow space in the timestamp is normalized. This captures the real abbreviated-to-full team-name mismatch.

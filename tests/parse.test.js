@@ -196,4 +196,14 @@ t('Temple screenshot and other explicit wins accept missing odds without inventi
   for(const line of ['✅ Home ML','✅ Away @ Home Over 3.5 Total','✅ Away @ Home u3 1H Total'])assert.strictEqual(P.parseResults(line)[0].odds,null);
   assert.strictEqual(P.parseResults('Temple Owls +8').length,0);
 });
+t('NC Courage win post matches the full saved team name, including an assumed loss', () => {
+  const out=P.parse(fixture('win-courage-alias'),{...ctx,now:Date.parse('2026-10-04T14:20:00-04:00')});
+  assert.strictEqual(out.signals.length,1);assert.strictEqual(out.results.length,1);
+  const b={...out.signals[0],status:'lost',autoLossAt:Date.parse('2026-10-04T12:00:00-04:00')};
+  assert.deepStrictEqual(P.settle([b],out.results,{assumeLost:false}).wins.map(w=>w.bet),[0]);
+  const wrong={...b,pick:'Seattle Reign FC Moneyline'};
+  assert.strictEqual(P.settle([wrong],out.results,{assumeLost:false}).wins.length,0);
+  const total={...b,market:'total',pick:'Over 3 Total',side:'over',line:3};
+  assert.strictEqual(P.settle([total],out.results,{assumeLost:false}).wins.length,0);
+});
 console.log(n + ' passed');

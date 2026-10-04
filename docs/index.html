@@ -429,11 +429,13 @@ body.calendar-active .wrap{max-width:1440px}
   }
   function parseResults(text) { return scanResults(text).results; }
   const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
-  const teamOf = pick => norm(String(pick || '').replace(/\s*\(.*\)\s*$/, '').replace(/\s+[+-]?\d+(?:\.\d+)?\s*(?:spread|spr|handicap)?\s*$/i, '').replace(/\s+(?:moneyline|ml)\s*$/i, ''));
+  // Explicit observed aliases, applied only to team identity (never odds or timing).
+  const teamNorm = value => norm(value).replace(/\bnc courage\b/g, 'north carolina courage');
+  const teamOf = pick => teamNorm(String(pick || '').replace(/\s*\(.*\)\s*$/, '').replace(/\s+[+-]?\d+(?:\.\d+)?\s*(?:spread|spr|handicap)?\s*$/i, '').replace(/\s+(?:moneyline|ml)\s*$/i, ''));
   const periodOf = b => (/1st\s*half|\b1h\b/i.test(b.marketDetail || '') || /1st\s*half|\b1h\b/i.test(b.pick || '')) ? '1h' : 'game';
   function resultMatchScore(b, r) {
-    const title = norm(b.title);
-    const sides = r.teams.split('@').map(norm).filter(Boolean);
+    const title = teamNorm(b.title);
+    const sides = r.teams.split('@').map(teamNorm).filter(Boolean);
     if (!sides.length || !sides.every(t => title.includes(t))) return 0;
     if (b.market !== r.market) return 0;
     const periodMismatch = periodOf(b) !== r.period;
