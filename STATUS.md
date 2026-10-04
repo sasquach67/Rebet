@@ -59,6 +59,7 @@ Andy wants a Notion-Calendar-style view (dark week grid, colored time blocks, re
 6. [ ] Hardening
 
 ## Current work
+- Release `ab749ed` pushed and live HTML byte-match verified (2026-10-04): saved-win Tracker updates no longer need Apply.
 - Automatic saved-win updates implemented on Read signals. Tracker/Calendar refresh immediately; summary distinguishes changed, already settled/skipped, and no unique match. npm test and 33 Tokyo parser checks passed; Courage, Liberty, no-odds Temple and settlement browser regressions passed. No live user data changed directly.
 - Courage alias release `0ffd6bc` pushed and live HTML byte-match verified (2026-10-04).
 - Courage mismatch fixed after exact paste supplied: explicit NC Courage alias. npm test and 32 Tokyo parser checks passed; `tests/courage-win-ui.test.js` verified correction of an existing assumed loss through dedupe/review/save/reload. User refresh/re-paste needed to apply to their browser; no personal records changed directly.
