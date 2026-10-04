@@ -1,0 +1,10 @@
+const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),P=require('../parser');
+(async()=>{const browser=await chromium.launch({headless:true,channel:'chrome'});try{
+const page=await browser.newPage({viewport:{width:390,height:844},timezoneId:'America/New_York'}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+const now=Date.parse('2026-10-04T19:00:00-04:00'),text=fs.readFileSync(path.join(__dirname,'fixtures/total-qk-49.txt'),'utf8'),original=P.parse(text.replace('QK 49','QK'),{now}).signals[0];
+await page.clock.install({time:new Date(now)});await page.addInitScript(data=>{if(!localStorage.getItem('rebet.v1'))localStorage.setItem('rebet.v1',JSON.stringify(data))},{bets:[{...original,id:'lions',status:'pending',notes:'preserve'}],settings:{lead:3,defaultOdds:-110}});
+await page.goto('file://'+path.resolve(__dirname,'../dist/rebet.html'));await page.locator('#paste').fill(text);await page.locator('#parseBtn').click();assert.match(await page.locator('#review').innerText(),/Updated pending selection: Over 49 Total/);
+await page.getByRole('button',{name:'Upcoming',exact:true}).click();assert.match(await page.locator('#t-up').innerText(),/Over 49 Total/);assert.match(await page.locator('#t-up').innerText(),/0.49u · -147 · EV 1.3%/);
+await page.screenshot({path:path.join(__dirname,'screenshots/qk-selection-phone.png'),fullPage:true});await page.reload();const bets=await page.evaluate(()=>JSON.parse(localStorage.getItem('rebet.v1')).bets);assert.equal(bets.length,1);assert.equal(bets[0].id,'lions');assert.equal(bets[0].notes,'preserve');assert.equal(bets[0].line,49);
+await page.locator('#paste').fill(text);await page.locator('#parseBtn').click();assert.equal(await page.locator('#review .inc').count(),0);assert.deepEqual(errors,[]);console.log('QK browser test passed: pending line corrected in place with matching stats, survives reload, repeats skipped.');
+}finally{await browser.close()}})().catch(e=>{console.error(e);process.exitCode=1});

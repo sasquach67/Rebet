@@ -12,3 +12,16 @@ assert.equal(D.same({...a,start:null,raw:'original signal'},{...a,start:null,raw
 assert.equal(D.same({...a,start:null,raw:'original signal'},{...a,start:null,raw:'different signal'}),false);
 const saved=[{...a,status:'won',notes:'keep this'}],snapshot=JSON.stringify(saved);D.filter([a],saved);assert.equal(JSON.stringify(saved),snapshot);
 console.log('Dedupe checks passed: saved/batch repeats, changed odds, key fallback, distinct picks/periods/dates, incomplete signals, no mutation');
+
+const P=require('../parser'),fs=require('fs'),path=require('path');
+const raw=fs.readFileSync(path.join(__dirname,'fixtures/total-qk-49.txt'),'utf8');
+const selected=P.parse(raw).signals[0],original=P.parse(raw.replace('QK 49','QK')).signals[0];
+const pending={...original,id:'keep-id',status:'pending',notes:'keep notes'};
+assert.deepEqual(D.correctPendingSelections([selected],[pending]),['Over 49 Total']);
+assert.equal(pending.line,49);assert.equal(pending.units,.49);assert.equal(pending.id,'keep-id');assert.equal(pending.notes,'keep notes');
+assert.equal(D.filter([selected,original],[pending]).skipped,2);
+for(const status of ['placed','won','lost','skipped']){const b={...original,status};assert.equal(D.correctPendingSelections([selected],[b]).length,0);assert.equal(b.line,51)}
+console.log('QK correction checks passed: pending corrected in place, repeated headlines skipped, recorded results preserved');
+
+assert.equal(D.filter([original,selected],[]).kept[0].line,49);
+assert.equal(D.filter([selected,original],[]).kept[0].line,49);

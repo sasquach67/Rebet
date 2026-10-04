@@ -151,7 +151,7 @@ t('win posts ("CASH ...") are read from chat, matched to bets, and unmatched old
   assert.deepStrictEqual(won, [
     'Fukuoka Hawks @ Tohoku Rakuten Golden Eagles | Over 4 Total (1st Half)',
     'LG Twins @ SSG Landers | SSG Landers 1 Spread (1st Half)',  // "SSG Landers +1 (-128)": exact line+price, 1H not stated
-    'Melbourne United @ Tasmania Jackjumpers | Tasmania Jackjumpers 6.5 Spread'].sort()); // won on its listed 8.5 line
+    'Melbourne United @ Tasmania Jackjumpers | Tasmania Jackjumpers 8.5 Spread'].sort()); // trailing QK 8.5 selects the winning listed line
   assert.deepStrictEqual(st.unmatched.map(i => r.results[i].raw), [
     'Zakharova, Anastasia @ Shao, Yushan u18.5 Total (-153)', 'Yomiuri Giants @ Hanshin Tigers u3 1H Total (-130)']);
   assert.deepStrictEqual(st.lost.map(i => r.signals[i].pick), ['Hanwha Eagles Moneyline']); // only games >5h old
@@ -215,5 +215,26 @@ t('automatic matches reject ambiguous games, other lines, periods and future gam
   assert.strictEqual(match([{...b,line:7.5,gameLines:[{line:8,odds:-110}]}]).matches.length,0);
   assert.strictEqual(match([{...b,marketDetail:'1st Half'}]).matches.length,0);
   assert.strictEqual(match([{...b,start:101}]).matches.length,0);
+});
+t('trailing QK line selects its own price/stake/stats, not the headline or 49 units', () => {
+  const b=P.parse(fixture('total-qk-49'),{...ctx,now:Date.parse('2026-10-04T19:00:00-04:00')}).signals[0];
+  assert.strictEqual(b.pick,'Over 49 Total');assert.strictEqual(b.line,49);assert.strictEqual(b.odds,-147);assert.strictEqual(b.units,.49);
+  assert.strictEqual(b.ev,1.3);assert.strictEqual(b.winPct,60.32);assert.strictEqual(b.fv,-152);assert.strictEqual(b.selectedGameLine,0);
+  assert.strictEqual(iso(b.start),'2026-10-05T00:20:00.000Z');
+});
+t('QK selection handles spread signs, keys, markdown and rejects ambiguous/missing lines', () => {
+  const raw=fixture('total-qk-49');
+  const parse=s=>P.parse(s,ctx).signals[0];
+  assert.strictEqual(parse(raw.replace('QK 49','QK +49')).line,49);
+  assert.strictEqual(parse(raw.replace('QK 49','QK 60')).line,51);
+  assert.ok(parse(raw.replace('QK 49','QK 60')).warnings.some(w=>w.includes('ambiguous')));
+  assert.strictEqual(parse(raw+'\nQK 49.5').line,51);
+  assert.strictEqual(parse(raw.replace('QK 49','QK: 49U')).line,51);
+  assert.strictEqual(parse(raw.replace('@CadeSquad @KnightLocksVIP QK 49','Another Author — Today at 7:00 PM\nQK 49')).line,51);
+  const keyed=raw.replace('Bet Key\n','Bet Key\nnfl|2026-10-05|Carolina Panthers|Detroit Lions|total_game|over|line=51\n');
+  assert.ok(parse(keyed).betKey.endsWith('|line=49'));
+  const marked=raw.split('\n').map(l=>'**'+l+'**').join('\n');assert.strictEqual(parse(marked).line,49);
+  const combined=raw.replace('sent before\nSun','sent before Sun');assert.strictEqual(parse(combined).hasTime,true);
+  const spread=fixture('spread-headline-second-arkansas')+'\nQK 8.5';assert.strictEqual(parse(spread).line,8.5);
 });
 console.log(n + ' passed');

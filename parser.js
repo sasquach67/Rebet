@@ -199,6 +199,33 @@
     return b;
   }
 
+  function applyQkLine(b, tail) {
+    const notes=[];
+    for(const raw of tail){
+      const l=raw.trim();
+      // A new Discord author/message ends the preceding signal's annotation area.
+      if (/\s[—–]\s/.test(l) || /^(?:Forwarded|@Rebet)$/i.test(l) || /[✅☑✔]/u.test(l)) break;
+      const m=l.match(/^(?:@\S+\s+)*QK\s+([+-]?\d+(?:\.\d+)?)(?:\s+@\S+)*\s*$/i);
+      if(m)notes.push({line:+m[1],raw:l});
+    }
+    if(!notes.length)return b;
+    b.raw+='\n'+notes.map(n=>n.raw).join('\n');
+    const requested=[...new Set(notes.map(n=>n.line))];
+    const matches=b.gameLines.map((g,i)=>({g,i})).filter(({g})=>requested.length===1&&g.line===requested[0]&&g.market===b.market&&g.side===b.side);
+    if(matches.length!==1){b.warnings.push('QK line selection missing or ambiguous in Game Lines; review selection');return b}
+    const {g,i}=matches[0];
+    b.selectionOverride={note:notes[0].raw,originalPick:b.pick,originalLine:b.line,originalOdds:b.odds,originalBetKey:b.betKey};
+    const suffix=(b.pick.match(/\s+\(.*\)$/)||[''])[0];
+    b.pick=g.pick.replace(/O\/U/gi,'Total').replace(/\bSPR\b/gi,'Spread')+suffix;
+    for(const key of ['line','odds','units','ev','winPct','fv'])b[key]=g[key];
+    b.selectedGameLine=i;
+    if(b.betKey)b.betKey=b.betKey.replace(/\|line=[^|]+$/, '|line='+g.line);
+    b.warnings=b.warnings.filter(w=>!w.includes('headline pick')&&w!=='no QK units found');
+    b.warnings.push('Selected listed line from '+notes[0].raw);
+    if(b.units==null)b.warnings.push('no QK units found');
+    return b;
+  }
+
   /* ---------- generic fallback ---------- */
   function parseGeneric(raw, ctx) {
     const lines = raw.split('\n').map(l => l.replace(/[*_`>|~]/g, '').replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}]/gu, '').trim()).filter(Boolean)
@@ -338,7 +365,8 @@
   /* ---------- entry point ---------- */
   function parse(text, ctxIn) {
     const ctx = Object.assign({ tz: 'America/New_York', localTz: Intl.DateTimeFormat().resolvedOptions().timeZone, now: Date.now() }, ctxIn || {});
-    const lines = text.replace(/\r/g, '').split('\n');
+    const lines = text.replace(/\r/g, '').split('\n').map(l=>l.replace(/\*\*|`/g,'').replace(/&#x20;/g,' ').replace(/^\s*\d+\.\s+(?=[A-Za-z@])/,'').trim())
+      .flatMap(l=>/message about this bet has been already sent before/i.test(l)?l.split(/\s+(?=(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat),\s)/):[l]);
     const heads = [];
     lines.forEach((l, i) => { const h = botHeader(l); if (h) heads.push({ i, h }); });
     if (heads.length) {
@@ -346,7 +374,8 @@
         const next = k + 1 < heads.length ? heads[k + 1].i : lines.length;
         let end = next;
         for (let j = x.i + 1; j < next; j++) if (isFooter(lines[j])) { end = j + 1; break; }
-        return parseBot(lines.slice(x.i, end).map(l => l.trim()).filter(Boolean), x.h, ctx);
+        const b=parseBot(lines.slice(x.i, end).map(l => l.trim()).filter(Boolean), x.h, ctx);
+        return applyQkLine(b,lines.slice(end,next));
       });
       return { signals, results: parseResults(text), ignored: 0 };
     }

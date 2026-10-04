@@ -35,3 +35,6 @@ Tests that remove the game timestamp, alter footer content, or wrap a key in spo
 
 ### Courage abbreviated win (2026-10-04)
 `win-courage-alias.txt` excerpts the Courage bot signal and `✅🥉NC Courage ML (+176)` post from Andy's pasted chunk. Unrelated messages are omitted and the narrow space in the timestamp is normalized. This captures the real abbreviated-to-full team-name mismatch.
+
+### Trailing QK line selection (2026-10-04)
+`total-qk-49.txt` is Andy's Detroit/Carolina example, with rich-text formatting removed and the game date on its own line. `QK 49` is the capper's selected line, while `QK: 0.49U` is that line's stake. Markdown and inline warning/date variants are derived test cases.

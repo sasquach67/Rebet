@@ -360,6 +360,33 @@ body.calendar-active .wrap{max-width:1440px}
     return b;
   }
 
+  function applyQkLine(b, tail) {
+    const notes=[];
+    for(const raw of tail){
+      const l=raw.trim();
+      // A new Discord author/message ends the preceding signal's annotation area.
+      if (/\s[—–]\s/.test(l) || /^(?:Forwarded|@Rebet)$/i.test(l) || /[✅☑✔]/u.test(l)) break;
+      const m=l.match(/^(?:@\S+\s+)*QK\s+([+-]?\d+(?:\.\d+)?)(?:\s+@\S+)*\s*$/i);
+      if(m)notes.push({line:+m[1],raw:l});
+    }
+    if(!notes.length)return b;
+    b.raw+='\n'+notes.map(n=>n.raw).join('\n');
+    const requested=[...new Set(notes.map(n=>n.line))];
+    const matches=b.gameLines.map((g,i)=>({g,i})).filter(({g})=>requested.length===1&&g.line===requested[0]&&g.market===b.market&&g.side===b.side);
+    if(matches.length!==1){b.warnings.push('QK line selection missing or ambiguous in Game Lines; review selection');return b}
+    const {g,i}=matches[0];
+    b.selectionOverride={note:notes[0].raw,originalPick:b.pick,originalLine:b.line,originalOdds:b.odds,originalBetKey:b.betKey};
+    const suffix=(b.pick.match(/\s+\(.*\)$/)||[''])[0];
+    b.pick=g.pick.replace(/O\/U/gi,'Total').replace(/\bSPR\b/gi,'Spread')+suffix;
+    for(const key of ['line','odds','units','ev','winPct','fv'])b[key]=g[key];
+    b.selectedGameLine=i;
+    if(b.betKey)b.betKey=b.betKey.replace(/\|line=[^|]+$/, '|line='+g.line);
+    b.warnings=b.warnings.filter(w=>!w.includes('headline pick')&&w!=='no QK units found');
+    b.warnings.push('Selected listed line from '+notes[0].raw);
+    if(b.units==null)b.warnings.push('no QK units found');
+    return b;
+  }
+
   /* ---------- generic fallback ---------- */
   function parseGeneric(raw, ctx) {
     const lines = raw.split('\n').map(l => l.replace(/[*_`>|~]/g, '').replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}]/gu, '').trim()).filter(Boolean)
@@ -499,7 +526,8 @@ body.calendar-active .wrap{max-width:1440px}
   /* ---------- entry point ---------- */
   function parse(text, ctxIn) {
     const ctx = Object.assign({ tz: 'America/New_York', localTz: Intl.DateTimeFormat().resolvedOptions().timeZone, now: Date.now() }, ctxIn || {});
-    const lines = text.replace(/\r/g, '').split('\n');
+    const lines = text.replace(/\r/g, '').split('\n').map(l=>l.replace(/\*\*|`/g,'').replace(/&#x20;/g,' ').replace(/^\s*\d+\.\s+(?=[A-Za-z@])/,'').trim())
+      .flatMap(l=>/message about this bet has been already sent before/i.test(l)?l.split(/\s+(?=(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat),\s)/):[l]);
     const heads = [];
     lines.forEach((l, i) => { const h = botHeader(l); if (h) heads.push({ i, h }); });
     if (heads.length) {
@@ -507,7 +535,8 @@ body.calendar-active .wrap{max-width:1440px}
         const next = k + 1 < heads.length ? heads[k + 1].i : lines.length;
         let end = next;
         for (let j = x.i + 1; j < next; j++) if (isFooter(lines[j])) { end = j + 1; break; }
-        return parseBot(lines.slice(x.i, end).map(l => l.trim()).filter(Boolean), x.h, ctx);
+        const b=parseBot(lines.slice(x.i, end).map(l => l.trim()).filter(Boolean), x.h, ctx);
+        return applyQkLine(b,lines.slice(end,next));
       });
       return { signals, results: parseResults(text), ignored: 0 };
     }
@@ -570,7 +599,9 @@ body.calendar-active .wrap{max-width:1440px}
     if(!b.hasTime||!Number.isFinite(b.start))return null;
     return JSON.stringify([norm(b.title),b.start,norm(b.pick),norm(b.market),norm(b.marketDetail),norm(b.side),b.line??null]);
   }
+  function originalOf(selected,original){const o=selected.selectionOverride;return !!o&&!original.selectionOverride&&norm(selected.title)===norm(original.title)&&selected.start===original.start&&norm(o.originalPick)===norm(original.pick)&&o.originalLine===original.line&&o.originalOdds===original.odds}
   function same(a,b){
+    if(originalOf(a,b)||originalOf(b,a))return true;
     const ak=norm(a.betKey),bk=norm(b.betKey);
     if(ak&&bk)return ak===bk;
     const af=fallback(a),bf=fallback(b);
@@ -578,8 +609,22 @@ body.calendar-active .wrap{max-width:1440px}
     // Without a scheduled time, only an identical original message is safe to skip.
     return !!norm(a.raw)&&norm(a.raw)===norm(b.raw)&&norm(a.title)===norm(b.title)&&norm(a.pick)===norm(b.pick);
   }
-  function filter(incoming,saved){const kept=[],seen=saved.slice();let skipped=0;for(const b of incoming){if(seen.some(x=>same(x,b)))skipped++;else{kept.push(b);seen.push(b)}}return {kept,skipped}}
-  return {same,filter};
+  function filter(incoming,saved){const kept=[],seen=saved.slice();let skipped=0;for(const b of incoming){const found=seen.find(x=>same(x,b));if(found){skipped++;const i=kept.indexOf(found);if(i>=0&&originalOf(b,found)){kept[i]=b;seen[seen.indexOf(found)]=b}}else{kept.push(b);seen.push(b)}}return {kept,skipped}}
+  function correctPendingSelections(incoming,saved){
+    const changed=[];
+    for(const b of incoming){
+      const o=b.selectionOverride;
+      if(!o||saved.some(x=>same(x,b)&&x.line===b.line&&norm(x.pick)===norm(b.pick)))continue;
+      const candidates=saved.filter(x=>x.status==='pending'&&norm(x.title)===norm(b.title)&&x.start===b.start&&x.hasTime&&
+        norm(x.market)===norm(b.market)&&norm(x.pick)===norm(o.originalPick)&&x.line===o.originalLine&&x.odds===o.originalOdds);
+      if(candidates.length!==1)continue;
+      const x=candidates[0];
+      for(const key of ['pick','line','odds','units','ev','winPct','fv','betKey','gameLines','selectedGameLine','selectionOverride','warnings','raw'])x[key]=b[key];
+      changed.push(x.pick);
+    }
+    return changed;
+  }
+  return {same,filter,correctPendingSelections};
 });
 
 </script>
@@ -621,9 +666,11 @@ const dayKey=ms=>{const d=new Date(ms);return d.getFullYear()+'-'+d.getMonth()+'
 /* ---------- add / review ---------- */
 let pending=[];
 let duplicatesSkipped=0;
+let correctedSelections=[];
 let pendingRes={results:[],updated:[],unchanged:[],unmatched:[],lostAssumed:0};
 $('#parseBtn').onclick=()=>{
   const out=RebetParser.parse($('#paste').value,signalCtx());
+  correctedSelections=RebetDedupe.correctPendingSelections(out.signals,S.bets);
   const unique=RebetDedupe.filter(out.signals,S.bets);
   duplicatesSkipped=unique.skipped;
   pending=unique.kept.map(b=>Object.assign(b,{id:uid(),status:'pending',notes:'',lead:null,notified:false,created:Date.now()}));
@@ -642,7 +689,7 @@ $('#parseBtn').onclick=()=>{
   const stillUnmatched=new Set(st.unmatched.filter(ri=>!ex.matches.some(w=>w.result===ri)));
   pendingRes={results:out.results,updated,unchanged,
     unmatched:[...stillUnmatched].map(i=>out.results[i].raw),lostAssumed:pending.filter(b=>b._res==='lost').length};
-  if(updated.length){save();renderAll()}
+  if(updated.length||correctedSelections.length){save();renderAll()}
 
   renderReview();
 };
@@ -651,7 +698,7 @@ function dtLocal(ms){if(!ms)return '';const d=new Date(ms-new Date(ms).getTimezo
 function renderReview(){
   const box=$('#review');
   box.hidden=false;
-  const updateNote=(pendingRes.updated.length?`<p><b>Updated Tracker: ${pendingRes.updated.length} bet${pendingRes.updated.length===1?'':'s'} marked Won.</b><br>${pendingRes.updated.map(esc).join('; ')}</p>`:'')+
+  const updateNote=(correctedSelections.length?`<p><b>Updated pending selection:</b> ${correctedSelections.map(esc).join('; ')}</p>`:'')+(pendingRes.updated.length?`<p><b>Updated Tracker: ${pendingRes.updated.length} bet${pendingRes.updated.length===1?'':'s'} marked Won.</b><br>${pendingRes.updated.map(esc).join('; ')}</p>`:'')+
     (pendingRes.unchanged.length?`<p class="mute">Already settled or skipped; unchanged: ${pendingRes.unchanged.map(esc).join('; ')}</p>`:'')+
     (pendingRes.unmatched.length?`<p class="mute">No unique matching bet; not changed: ${pendingRes.unmatched.map(esc).join('; ')}</p>`:'');
   if(!pending.length){box.innerHTML=(duplicatesSkipped?`<p class="mute">${duplicatesSkipped} duplicate signal${duplicatesSkipped===1?'':'s'} skipped automatically. No new signals.</p>`:'')+updateNote+(pendingRes.results.length?'':duplicatesSkipped?'':'<span class="mute">Nothing to read — paste some text first.</span>');return}

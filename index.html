@@ -200,9 +200,11 @@ const dayKey=ms=>{const d=new Date(ms);return d.getFullYear()+'-'+d.getMonth()+'
 /* ---------- add / review ---------- */
 let pending=[];
 let duplicatesSkipped=0;
+let correctedSelections=[];
 let pendingRes={results:[],updated:[],unchanged:[],unmatched:[],lostAssumed:0};
 $('#parseBtn').onclick=()=>{
   const out=RebetParser.parse($('#paste').value,signalCtx());
+  correctedSelections=RebetDedupe.correctPendingSelections(out.signals,S.bets);
   const unique=RebetDedupe.filter(out.signals,S.bets);
   duplicatesSkipped=unique.skipped;
   pending=unique.kept.map(b=>Object.assign(b,{id:uid(),status:'pending',notes:'',lead:null,notified:false,created:Date.now()}));
@@ -221,7 +223,7 @@ $('#parseBtn').onclick=()=>{
   const stillUnmatched=new Set(st.unmatched.filter(ri=>!ex.matches.some(w=>w.result===ri)));
   pendingRes={results:out.results,updated,unchanged,
     unmatched:[...stillUnmatched].map(i=>out.results[i].raw),lostAssumed:pending.filter(b=>b._res==='lost').length};
-  if(updated.length){save();renderAll()}
+  if(updated.length||correctedSelections.length){save();renderAll()}
 
   renderReview();
 };
@@ -230,7 +232,7 @@ function dtLocal(ms){if(!ms)return '';const d=new Date(ms-new Date(ms).getTimezo
 function renderReview(){
   const box=$('#review');
   box.hidden=false;
-  const updateNote=(pendingRes.updated.length?`<p><b>Updated Tracker: ${pendingRes.updated.length} bet${pendingRes.updated.length===1?'':'s'} marked Won.</b><br>${pendingRes.updated.map(esc).join('; ')}</p>`:'')+
+  const updateNote=(correctedSelections.length?`<p><b>Updated pending selection:</b> ${correctedSelections.map(esc).join('; ')}</p>`:'')+(pendingRes.updated.length?`<p><b>Updated Tracker: ${pendingRes.updated.length} bet${pendingRes.updated.length===1?'':'s'} marked Won.</b><br>${pendingRes.updated.map(esc).join('; ')}</p>`:'')+
     (pendingRes.unchanged.length?`<p class="mute">Already settled or skipped; unchanged: ${pendingRes.unchanged.map(esc).join('; ')}</p>`:'')+
     (pendingRes.unmatched.length?`<p class="mute">No unique matching bet; not changed: ${pendingRes.unmatched.map(esc).join('; ')}</p>`:'');
   if(!pending.length){box.innerHTML=(duplicatesSkipped?`<p class="mute">${duplicatesSkipped} duplicate signal${duplicatesSkipped===1?'':'s'} skipped automatically. No new signals.</p>`:'')+updateNote+(pendingRes.results.length?'':duplicatesSkipped?'':'<span class="mute">Nothing to read — paste some text first.</span>');return}
